@@ -176,9 +176,12 @@ Parallel spawns (multiple `Task` tool_use blocks in a single assistant turn) cau
 
 ### Movement
 
-- No pathfinding. Village is a flat voxel plane; characters walk in a straight line to the target zone over ~800ms with a 2-frame hop cycle.
-- No collision. Characters overlap; z-offset by agent id hash avoids z-fighting.
-- Conversation huddle: when triggered, the incoming character stops one block beside the existing character and both face each other for bubble duration, then continue.
+- **Pathfinding on a voxel grid.** The village is modeled as a coarse 1-block grid. Each zone's footprint (ground tile + building + signpost + decorative props) is marked **impassable**. Plaza tiles and connecting stone walkways are marked **walkable**.
+- Route from current position to target zone computed with A* (via `pathfinding.js` or equivalent, ~8KB) on target change - not every frame. Result is a list of grid waypoints.
+- Character walks along the waypoint polyline, turning at corners. Walk speed tuned so a typical inter-zone route takes ~800ms - ~1.5s depending on distance. 2-frame hop cycle throughout.
+- **No collision between characters.** Characters overlap; z-offset by agent id hash avoids z-fighting.
+- **Fallback if no path exists** (should not happen with a well-authored grid): log a warning and teleport the character straight to target.
+- **Conversation huddle:** when triggered, the incoming character paths to a square one block beside the existing character and both face each other for the bubble duration, then continue on their own route.
 
 ### Animations (GLTF, reused voxel model)
 
@@ -280,6 +283,7 @@ Tab badges show: agent count, whether the timeline has new unseen lines, and ses
 - **3D:** Three.js (voxel models via GLTF), orbital camera via `@react-three/drei` `OrbitControls`.
 - **Scene glue:** `@react-three/fiber` for React-idiomatic Three.js composition; `@react-three/drei` for helpers (Html labels, OrbitControls, instanced meshes).
 - **File watching:** `chokidar`.
+- **Pathfinding:** `pathfinding.js` (A* on a 2D grid).
 - **Local storage:** `better-sqlite3` for pinned tabs + known sessions + last-known ghost positions.
 - **Packaging:** `electron-builder` (.dmg output).
 - **Testing:** Vitest (unit) + Playwright (integration).
@@ -302,18 +306,19 @@ Tasks are chunked so main-process and renderer work can proceed in parallel with
 
 ### Renderer block (parallel; each depends on #2, mocks IPC until #7 is ready)
 8. **Tab chrome + sidebar** - React shell, `SessionContext`, pin/close UX, sidebar list of recent sessions.
-9. **`VillageScene`** - Three.js setup, nine zones with voxel props and signposts, orbital camera, lighting. No characters yet.
-10. **`Character` component** - GLTF loader, animation state machine, hashed-color tinting, floating name label.
-11. **`TooltipLayer`** - raycaster hit-tests for zones / signposts / icons / characters / bubbles. Single DOM tooltip with 200ms delay.
-12. **`TimelineStrip`** - collapsible panel, color-coded per agent, click-to-camera-jump behavior.
-13. **Conversation animations** - spawn huddle, return huddle, bubble truncation policy (60ch / 500ch / drawer).
-14. **`SettingsScreen` + About modal** - data source toggles, watch-path override, ghost timer, About content.
+9. **`VillageScene`** - Three.js setup, nine zones with voxel props and signposts, orbital camera, lighting. Builds the walkable/impassable grid map from zone footprints. No characters yet.
+10. **`pathfinding.ts`** + unit tests - A* over the walkable grid, `computePath(from, to)` returns waypoint list. Pure function, easy to test in isolation.
+11. **`Character` component** - GLTF loader, animation state machine, hashed-color tinting, floating name label, consumes pathfinding for movement.
+12. **`TooltipLayer`** - raycaster hit-tests for zones / signposts / icons / characters / bubbles. Single DOM tooltip with 200ms delay.
+13. **`TimelineStrip`** - collapsible panel, color-coded per agent, click-to-camera-jump behavior.
+14. **Conversation animations** - spawn huddle, return huddle, bubble truncation policy (60ch / 500ch / drawer).
+15. **`SettingsScreen` + About modal** - data source toggles, watch-path override, ghost timer, About content.
 
 ### Integration and ship
-15. **Wire renderer to real IPC + end-to-end smoke test** - Playwright integration spec that writes a synthetic JSONL file and asserts the expected scene updates.
-16. **Packaging** - `electron-builder` config, `.dmg` output, README, install notes, Gatekeeper workaround doc.
+16. **Wire renderer to real IPC + end-to-end smoke test** - Playwright integration spec that writes a synthetic JSONL file and asserts the expected scene updates.
+17. **Packaging** - `electron-builder` config, `.dmg` output, README, install notes, Gatekeeper workaround doc.
 
-Tasks 3-6 and 8-14 each touch their own module and can be implemented by a separate agent in parallel. The shared-types package (#2) is the synchronization point.
+Tasks 3-6 and 8-15 each touch their own module and can be implemented by a separate agent in parallel. The shared-types package (#2) is the synchronization point.
 
 ## 15. Repo conventions
 
@@ -327,7 +332,7 @@ Tasks 3-6 and 8-14 each touch their own module and can be implemented by a separ
 
 ## 16. Open questions / future work
 
-- Voxel asset pack choice (licensing + aesthetic pick) - defer until task 10.
+- Voxel asset pack choice (licensing + aesthetic pick) - defer until task 11.
 - Windows / Linux support - out of scope for v1 but Electron makes it cheap to add later.
 - Historical replay mode (scrub through a past session) - natural extension once JSONL parsing and scene rendering are in place.
 - Multi-window support (one window per session instead of tabs) - postponed unless it becomes a pain point.
