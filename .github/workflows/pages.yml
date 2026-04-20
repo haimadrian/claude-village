@@ -45,6 +45,12 @@ jobs:
       - name: Build Pages site
         run: pnpm exec node scripts/build-pages.mjs
 
+      - name: Delete any stale github-pages artifact from previous attempts
+        uses: geekyeggo/delete-artifact@v5
+        with:
+          name: github-pages
+          failOnError: false
+
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
