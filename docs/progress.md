@@ -19,7 +19,7 @@
 
 | # | Task | Status | Owner | Commit / Notes |
 |---|------|--------|-------|----------------|
-| 3 | `session-watcher.ts` + unit tests (JSONL tailing, offset tracking) | `[ ]` | - | - |
+| 3 | `session-watcher.ts` + unit tests (JSONL tailing, offset tracking) | `[~]` | agent-session-watcher (2026-04-20 22:05) | - |
 | 4 | `hook-server.ts` + unit tests (HTTP + socket Claude hook listener) | `[ ]` | - | - |
 | 5 | `classifier.ts` + unit tests (event -> zone/animation/tooltip) | `[ ]` | - | - |
 | 6 | `session-store.ts` + unit tests (in-memory + SQLite snapshot) | `[ ]` | - | - |
