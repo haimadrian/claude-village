@@ -52,6 +52,17 @@ const debugMode = process.env.CV_DEBUG === "1";
 log.transports.file.level = debugMode ? "debug" : "info";
 log.transports.console.level = debugMode ? "debug" : "info";
 
+// Set up the IPC bridge so `electron-log/renderer` calls forward to this main
+// process, landing in the same `main.log` file. Must be called before any
+// BrowserWindow is created, which is guaranteed here because this module is
+// imported by `src/main/index.ts` at startup.
+try {
+  log.initialize();
+} catch {
+  // ignore - `initialize` is not available when running outside Electron
+  // (e.g. vitest importing a module that pulls logger in transitively).
+}
+
 // ISO timestamp + level + message. Structured fields (sessionId, agentId, file
 // paths) are passed as extra arguments; electron-log renders them inline.
 log.transports.file.format = "[{iso}] [{level}] {text}";
