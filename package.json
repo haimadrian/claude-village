@@ -13,7 +13,7 @@
     "lint": "ESLINT_USE_FLAT_CONFIG=false eslint src --ext .ts,.tsx && prettier --check \"src/**/*.{ts,tsx,json,md}\"",
     "lint:fix": "ESLINT_USE_FLAT_CONFIG=false eslint src --ext .ts,.tsx --fix && prettier --write \"src/**/*.{ts,tsx,json,md}\"",
     "typecheck": "tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.web.json --noEmit",
-    "test": "vitest run --passWithNoTests",
+    "test": "vitest run",
     "test:watch": "vitest",
     "e2e": "playwright test"
   },

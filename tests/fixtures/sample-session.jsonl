@@ -1,0 +1,3 @@
+{"type":"user","message":{"role":"user","content":"hello"},"sessionId":"sess-1","uuid":"u-1","timestamp":"2026-04-20T10:00:00Z"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"hi"}]},"sessionId":"sess-1","uuid":"u-2","timestamp":"2026-04-20T10:00:01Z"}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"tu-1","name":"Read","input":{"file_path":"/tmp/x.ts"}}]},"sessionId":"sess-1","uuid":"u-3","timestamp":"2026-04-20T10:00:02Z"}
