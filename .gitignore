@@ -7,6 +7,8 @@ release/
 .env
 .env.local
 coverage/
+test-results/
+playwright-report/
 .vite/
 .turbo/
 .superpowers/
