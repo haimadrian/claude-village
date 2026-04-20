@@ -3,11 +3,25 @@ import { Canvas } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import { ZONES } from "../../shared/zones";
 import { Zone } from "./Zone";
+import { Character } from "./Character";
+import { useSessions } from "../context/SessionContext";
 
 const RADIUS = 8;
 
-export function VillageScene() {
+interface VillageSceneProps {
+  sessionId?: string;
+}
+
+export function VillageScene({ sessionId }: VillageSceneProps) {
+  const { sessions } = useSessions();
+  const session = sessionId ? sessions.get(sessionId) : undefined;
   const positions = computeZonePositions();
+  const zonePositions = Object.fromEntries(ZONES.map((z, i) => [z.id, positions[i]!])) as Record<
+    string,
+    [number, number, number]
+  >;
+  const grid = buildWalkableGrid();
+
   return (
     <Canvas camera={{ position: [15, 12, 15], fov: 45 }} style={{ background: "#87ceeb" }}>
       <ambientLight intensity={0.5} />
@@ -20,6 +34,16 @@ export function VillageScene() {
       {ZONES.map((z, i) => (
         <Zone key={z.id} meta={z} position={positions[i]!} />
       ))}
+      {session &&
+        Array.from(session.agents.values()).map((agent) => (
+          <Character
+            key={agent.id}
+            agent={agent}
+            zonePositions={zonePositions}
+            walkable={grid.walkable}
+            gridSize={grid.size}
+          />
+        ))}
     </Canvas>
   );
 }
