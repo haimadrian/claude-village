@@ -1,7 +1,7 @@
 import path from "node:path";
 import fs from "node:fs";
 import { app } from "electron";
-import log from "electron-log/main";
+import log from "electron-log/main.js";
 
 /**
  * Central logger for the main process. Wraps `electron-log` with:

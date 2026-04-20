@@ -1,4 +1,4 @@
-import log from "electron-log/renderer";
+import log from "electron-log/renderer.js";
 
 /**
  * Renderer-side logger. Uses `electron-log/renderer` which forwards records

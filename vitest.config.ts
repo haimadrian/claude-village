@@ -19,6 +19,8 @@ export default defineConfig({
   resolve: {
     alias: {
       electron: path.resolve(__dirname, "tests/unit/stubs/electron.ts"),
+      "electron-log/main.js": path.resolve(__dirname, "tests/unit/stubs/electron-log-main.ts"),
+      "electron-log/renderer.js": path.resolve(__dirname, "tests/unit/stubs/electron-log-main.ts"),
       "electron-log/main": path.resolve(__dirname, "tests/unit/stubs/electron-log-main.ts"),
       "electron-log/renderer": path.resolve(__dirname, "tests/unit/stubs/electron-log-main.ts")
     }

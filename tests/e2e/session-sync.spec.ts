@@ -47,7 +47,7 @@ test("a new session file causes a tab to appear", async () => {
 
   const app = await electron.launch({
     args: ["out/main/index.js"],
-    env: { ...process.env, CLAUDE_CONFIG_DIR: fakeClaude }
+    env: { ...process.env, CLAUDE_CONFIG_DIR: fakeClaude, CV_DEBUG: "1" }
   });
 
   try {
