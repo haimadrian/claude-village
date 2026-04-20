@@ -126,17 +126,24 @@ main.content img { max-width: 100%; }
 
 fs.writeFileSync(path.join(out, "assets", "style.css"), css.trim() + "\n");
 
-function sidebar(currentSlug) {
+// `root` is the relative prefix from the current page back to the site root
+// (e.g. "" for index.html, "../" for docs/<slug>.html). We use relative URLs
+// throughout because the site is deployed under a project subpath
+// (`/claude-village/`), not at the domain root.
+function sidebar(currentSlug, root) {
   const cls = (slug) => (slug === currentSlug ? "active" : "");
   const docsLinks = docs
-    .map((d) => `        <li><a class="${cls(d.slug)}" href="/docs/${d.slug}.html">${d.title}</a></li>`)
+    .map(
+      (d) =>
+        `        <li><a class="${cls(d.slug)}" href="${root}docs/${d.slug}.html">${d.title}</a></li>`
+    )
     .join("\n");
   return `
   <aside class="nav">
-    <div class="brand"><span class="mark">🧱</span><strong>claude-village</strong></div>
+    <div class="brand"><span class="mark">\u{1F9F1}</span><strong>claude-village</strong></div>
     <h4>Project</h4>
     <ul>
-      <li><a class="${cls("home")}" href="/">Home</a></li>
+      <li><a class="${cls("home")}" href="${root}index.html">Home</a></li>
     </ul>
     <h4>Docs</h4>
     <ul>
@@ -144,9 +151,9 @@ ${docsLinks}
     </ul>
     <h4>CI reports</h4>
     <ul>
-      <li><a href="/reports/unit/">Unit tests</a></li>
-      <li><a href="/reports/coverage/">Coverage</a></li>
-      <li><a href="/reports/e2e/">E2E (Playwright)</a></li>
+      <li><a href="${root}reports/unit/index.html">Unit tests</a></li>
+      <li><a href="${root}reports/coverage/index.html">Coverage</a></li>
+      <li><a href="${root}reports/e2e/index.html">E2E (Playwright)</a></li>
     </ul>
     <h4>Source</h4>
     <ul>
@@ -156,19 +163,18 @@ ${docsLinks}
   </aside>`;
 }
 
-function page({ title, slug, body }) {
+function page({ title, slug, body, root }) {
   return `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
 <title>${title} \u00b7 claude-village</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<base href="/" />
-<link rel="stylesheet" href="/assets/style.css" />
+<link rel="stylesheet" href="${root}assets/style.css" />
 </head>
 <body>
 <div class="layout">
-${sidebar(slug)}
+${sidebar(slug, root)}
   <main class="content">
 ${body}
   </main>
@@ -188,30 +194,33 @@ const homeBody = `
 
   <h2>Get going</h2>
   <div class="cards">
-    <a class="card" href="/docs/install.html"><div class="title">\u2b07 Install</div><div class="desc">Download the .dmg, drag to Applications, run the Gatekeeper unlock.</div></a>
-    <a class="card" href="/docs/usage.html"><div class="title">\ud83c\udfae Usage</div><div class="desc">Tabs, zones, tooltips, timeline, settings - how to drive the app.</div></a>
-    <a class="card" href="/docs/development.html"><div class="title">\ud83d\udee0 Development</div><div class="desc">Clone, install, dev loop, test, build, package.</div></a>
+    <a class="card" href="docs/install.html"><div class="title">\u2b07 Install</div><div class="desc">Download the .dmg, drag to Applications, run the Gatekeeper unlock.</div></a>
+    <a class="card" href="docs/usage.html"><div class="title">\ud83c\udfae Usage</div><div class="desc">Tabs, zones, tooltips, timeline, settings - how to drive the app.</div></a>
+    <a class="card" href="docs/development.html"><div class="title">\ud83d\udee0 Development</div><div class="desc">Clone, install, dev loop, test, build, package.</div></a>
   </div>
 
   <h2>Under the hood</h2>
   <div class="cards">
-    <a class="card" href="/docs/design.html"><div class="title">\ud83d\udcd0 Design spec</div><div class="desc">Architecture, data flow, zones, animations, tooltips.</div></a>
-    <a class="card" href="/docs/plan.html"><div class="title">\ud83d\udccb Implementation plan</div><div class="desc">The 17 tasks that built the app.</div></a>
-    <a class="card" href="/docs/progress.html"><div class="title">\u2705 Progress</div><div class="desc">Live status of tasks, tech debt, lessons learned.</div></a>
+    <a class="card" href="docs/design.html"><div class="title">\ud83d\udcd0 Design spec</div><div class="desc">Architecture, data flow, zones, animations, tooltips.</div></a>
+    <a class="card" href="docs/plan.html"><div class="title">\ud83d\udccb Implementation plan</div><div class="desc">The 17 tasks that built the app.</div></a>
+    <a class="card" href="docs/progress.html"><div class="title">\u2705 Progress</div><div class="desc">Live status of tasks, tech debt, lessons learned.</div></a>
   </div>
 
   <h2>CI reports</h2>
   <div class="cards">
-    <a class="card" href="/reports/unit/"><div class="title">\ud83e\uddea Unit tests</div><div class="desc">Vitest HTML report from the latest main build.</div></a>
-    <a class="card" href="/reports/coverage/"><div class="title">\ud83d\udcca Coverage</div><div class="desc">V8 coverage - line, statement, branch, function.</div></a>
-    <a class="card" href="/reports/e2e/"><div class="title">\ud83c\udfad E2E</div><div class="desc">Playwright HTML report (runs against the real packaged app).</div></a>
+    <a class="card" href="reports/unit/index.html"><div class="title">\ud83e\uddea Unit tests</div><div class="desc">Vitest HTML report from the latest main build.</div></a>
+    <a class="card" href="reports/coverage/index.html"><div class="title">\ud83d\udcca Coverage</div><div class="desc">V8 coverage - line, statement, branch, function.</div></a>
+    <a class="card" href="reports/e2e/index.html"><div class="title">\ud83c\udfad E2E</div><div class="desc">Playwright HTML report (runs against the real packaged app).</div></a>
   </div>
 
   <h2>Credits</h2>
   <p>Created by Haim Adrian for Claude Code users.</p>
 `;
 
-fs.writeFileSync(path.join(out, "index.html"), page({ title: "Home", slug: "home", body: homeBody }));
+fs.writeFileSync(
+  path.join(out, "index.html"),
+  page({ title: "Home", slug: "home", body: homeBody, root: "" })
+);
 
 // --- Rendered docs ----------------------------------------------------------
 
@@ -219,12 +228,12 @@ marked.use({ gfm: true, breaks: false });
 
 function rewriteLinks(html) {
   // Turn internal markdown links (docs/install.md, plans/foo.md, design/bar.md,
-  // ./progress.md, etc.) into Pages-relative ones. Leave external URLs alone.
+  // ./progress.md, etc.) into same-directory Pages links. Leave external URLs alone.
   return html.replace(/href="([^"]+)"/g, (full, href) => {
     if (/^https?:/.test(href)) return `href="${href}" target="_blank" rel="noopener"`;
     if (href.startsWith("#")) return full;
     const match = docs.find((d) => href.endsWith(d.source) || href.endsWith(`${d.slug}.md`));
-    if (match) return `href="/docs/${match.slug}.html"`;
+    if (match) return `href="${match.slug}.html"`;
     return full;
   });
 }
@@ -237,7 +246,10 @@ for (const d of docs) {
   }
   const md = fs.readFileSync(src, "utf8");
   const html = rewriteLinks(marked.parse(md));
-  fs.writeFileSync(path.join(out, "docs", `${d.slug}.html`), page({ title: d.title, slug: d.slug, body: html }));
+  fs.writeFileSync(
+    path.join(out, "docs", `${d.slug}.html`),
+    page({ title: d.title, slug: d.slug, body: html, root: "../" })
+  );
 }
 
 // --- Reports ----------------------------------------------------------------
@@ -249,11 +261,13 @@ const copied = {
 };
 
 // Placeholder landing pages if a report wasn't produced this run.
-const placeholder = (title) => page({
-  title,
-  slug: "home",
-  body: `<h1>${title}</h1><p>No ${title.toLowerCase()} was produced in this run.</p><p><a href="/">\u2190 Back to home</a></p>`
-});
+const placeholder = (title) =>
+  page({
+    title,
+    slug: "home",
+    body: `<h1>${title}</h1><p>No ${title.toLowerCase()} was produced in this run.</p><p><a href="../../index.html">\u2190 Back to home</a></p>`,
+    root: "../../"
+  });
 if (!copied.unit) {
   fs.mkdirSync(path.join(out, "reports/unit"), { recursive: true });
   fs.writeFileSync(path.join(out, "reports/unit/index.html"), placeholder("Unit tests report"));
