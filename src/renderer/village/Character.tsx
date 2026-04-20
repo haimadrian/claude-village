@@ -63,6 +63,7 @@ export function Character({ agent, zonePositions, walkable, gridSize }: Characte
   const translucent = agent.animation === "ghost";
   const opacity = translucent ? 0.4 : 1;
   const labelPrefix = agent.kind === "main" ? "🛡 " : "";
+  const lastAction = agent.recentActions[agent.recentActions.length - 1];
 
   return (
     <group
@@ -93,8 +94,38 @@ export function Character({ agent, zonePositions, walkable, gridSize }: Characte
           {agent.id.slice(0, 6)}
         </div>
       </Html>
+      {lastAction && (
+        <Html position={[0, 2.8, 0]} center distanceFactor={12}>
+          <div
+            onClick={(e) => {
+              e.stopPropagation();
+              window.dispatchEvent(
+                new CustomEvent("village:open-bubble", { detail: { agentId: agent.id } })
+              );
+            }}
+            style={{
+              cursor: "pointer",
+              fontSize: 10,
+              background: "rgba(255,255,255,0.9)",
+              color: "#111",
+              padding: "2px 6px",
+              borderRadius: 8,
+              maxWidth: 220,
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis"
+            }}
+          >
+            {truncate(lastAction.summary, 60)}
+          </div>
+        </Html>
+      )}
     </group>
   );
+}
+
+function truncate(s: string, n: number): string {
+  return s.length > n ? s.slice(0, n - 1) + "…" : s;
 }
 
 function worldToGrid(v: { x: number; z: number }, size: number): GridPoint {
