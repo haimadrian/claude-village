@@ -17,6 +17,12 @@ const store = new SessionStore(path.join(app.getPath("userData"), "village.db"))
 const watcher = new SessionWatcher(watchRoot);
 const hookServer = new HookServer();
 
+// Holds the active bridge wiring so we can tear it down before re-wiring on
+// macOS dock-icon re-activation. Without this, the second `createWindow` call
+// re-registers `ipcMain.handle` for the same channels and Electron throws
+// "Attempted to register a second handler for ...".
+let bridge: { dispose: () => void } | null = null;
+
 async function createWindow(): Promise<void> {
   const win = new BrowserWindow({
     width: 1280,
@@ -29,7 +35,12 @@ async function createWindow(): Promise<void> {
     }
   });
 
-  wireIpc({ window: win, store, watcher, hookServer });
+  bridge?.dispose();
+  bridge = wireIpc({ window: win, store, watcher, hookServer });
+  win.on("closed", () => {
+    bridge?.dispose();
+    bridge = null;
+  });
 
   if (process.env.ELECTRON_RENDERER_URL) {
     void win.loadURL(process.env.ELECTRON_RENDERER_URL);
