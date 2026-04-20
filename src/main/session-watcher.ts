@@ -4,6 +4,7 @@ import fs from "node:fs";
 import { EventEmitter } from "node:events";
 import type { AgentEvent } from "../shared/types";
 import { normalizeJsonlEvent } from "./event-normalizer";
+import { logger } from "./logger";
 
 /**
  * Watches a root directory for Claude Code JSONL session logs and emits
@@ -26,6 +27,7 @@ export class SessionWatcher extends EventEmitter {
   }
 
   async start(): Promise<void> {
+    logger.info("SessionWatcher starting", { rootDir: this.rootDir });
     // chokidar v4 dropped built-in glob support, so we watch the root dir and
     // filter to *.jsonl via the `ignored` predicate. Non-file paths (dirs) must
     // pass through so subdirectories get traversed.
@@ -40,10 +42,14 @@ export class SessionWatcher extends EventEmitter {
 
     this.watcher.on("add", (file) => this.readFromOffset(file));
     this.watcher.on("change", (file) => this.readFromOffset(file));
-    this.watcher.on("unlink", (file) => this.offsets.delete(file));
+    this.watcher.on("unlink", (file) => {
+      logger.debug("SessionWatcher file removed", { file });
+      this.offsets.delete(file);
+    });
   }
 
   async stop(): Promise<void> {
+    logger.info("SessionWatcher stopping");
     await this.watcher?.close();
     this.watcher = null;
     this.offsets.clear();
@@ -56,6 +62,7 @@ export class SessionWatcher extends EventEmitter {
     } catch {
       // File was unlinked between the chokidar event and our stat call. The
       // unlink handler will clean up this.offsets; nothing to read.
+      logger.warn("SessionWatcher stat failed (file removed mid-read)", { file });
       return;
     }
 
@@ -80,25 +87,35 @@ export class SessionWatcher extends EventEmitter {
     });
     stream.on("end", () => {
       const lines = buffer.split("\n");
+      let emitted = 0;
       for (const line of lines) {
         if (!line.trim()) continue;
-        const event = this.parseLine(line);
-        if (event) this.emit("event", event);
+        const event = this.parseLine(line, file);
+        if (event) {
+          this.emit("event", event);
+          emitted += 1;
+        }
       }
+      if (emitted > 0) logger.debug("SessionWatcher emitted events", { file, count: emitted });
       this.offsets.set(file, size);
     });
-    stream.on("error", () => {
+    stream.on("error", (err) => {
       // Swallow read errors: the file may have been rotated out from under us.
       // The next `change` event will reset the offset via the truncation guard above.
+      logger.warn("SessionWatcher read stream error", { file, message: err.message });
     });
   }
 
-  private parseLine(line: string): AgentEvent | null {
+  private parseLine(line: string, file: string): AgentEvent | null {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let raw: any;
     try {
       raw = JSON.parse(line);
     } catch {
+      logger.warn("SessionWatcher malformed JSONL line", {
+        file,
+        excerpt: line.slice(0, 120)
+      });
       return null;
     }
     return normalizeJsonlEvent(raw, line);

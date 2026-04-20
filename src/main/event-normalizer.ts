@@ -1,4 +1,5 @@
 import type { AgentEvent } from "../shared/types";
+import { logger } from "./logger";
 
 /**
  * Normalizes a single parsed Claude Code JSONL line into an AgentEvent.
@@ -15,6 +16,7 @@ export function normalizeJsonlEvent(raw: any, rawLine: string): AgentEvent | nul
 
   if (raw.type === "user") {
     const excerpt = extractText(raw.message?.content)?.slice(0, 500);
+    logger.debug("normalizeJsonlEvent produced user-message", { sessionId });
     return {
       sessionId,
       agentId: sessionId, // main agent shares id with session until subagent tracking lands
@@ -58,6 +60,7 @@ export function normalizeJsonlEvent(raw: any, rawLine: string): AgentEvent | nul
 
   if (raw.type === "tool_result" || raw.type === "user-tool-result") {
     const summary = extractText(raw.toolUseResult ?? raw.content)?.slice(0, 200);
+    logger.debug("normalizeJsonlEvent produced post-tool-use", { sessionId });
     return {
       sessionId,
       agentId: sessionId,
@@ -69,6 +72,14 @@ export function normalizeJsonlEvent(raw: any, rawLine: string): AgentEvent | nul
     };
   }
 
+  // Unknown / unhandled payload type. Log sparingly - only the type, not the
+  // full line, to avoid spamming with every unsupported event kind.
+  if (typeof raw.type === "string") {
+    logger.warn("normalizeJsonlEvent unknown payload type", {
+      sessionId,
+      payloadType: raw.type
+    });
+  }
   return null;
 }
 

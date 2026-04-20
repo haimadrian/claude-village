@@ -14,6 +14,9 @@ importers:
       chokidar:
         specifier: ^4.0.1
         version: 4.0.3
+      electron-log:
+        specifier: ^5.4.3
+        version: 5.4.3
       pathfinding:
         specifier: ^0.4.18
         version: 0.4.18
@@ -1398,6 +1401,10 @@ packages:
     resolution: {integrity: sha512-poRgAtUHHOnlzZnc9PK4nzG53xh74wj2Jy7jkTrqZ0MWPoHGh1M2+C//hGeYdA+4K8w4yiVCNYoLXF7ySj2Wig==}
     engines: {node: '>=14.0.0'}
     hasBin: true
+
+  electron-log@5.4.3:
+    resolution: {integrity: sha512-sOUsM3LjZdugatazSQ/XTyNcw8dfvH1SYhXWiJyfYodAAKOZdHs0txPiLDXFzOZbhXgAgshQkshH2ccq0feyLQ==}
+    engines: {node: '>= 14'}
 
   electron-publish@25.1.7:
     resolution: {integrity: sha512-+jbTkR9m39eDBMP4gfbqglDd6UvBC7RLh5Y0MhFSsc6UkGHj9Vj9TWobxevHYMMqmoujL11ZLjfPpMX+Pt6YEg==}
@@ -4684,6 +4691,8 @@ snapshots:
       - bluebird
       - electron-builder-squirrel-windows
       - supports-color
+
+  electron-log@5.4.3: {}
 
   electron-publish@25.1.7:
     dependencies:

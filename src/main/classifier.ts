@@ -1,5 +1,11 @@
 import type { AgentEvent, Classification, WorkAnimation } from "../shared/types";
 import type { ZoneId } from "../shared/zones";
+import { logger } from "./logger";
+
+// Remember which (tool, zone, animation) combinations we have already logged
+// this process lifetime so classifier DEBUG output stays sparse. Instrumentation,
+// not business data, so in-memory is fine.
+const seenClassifications = new Set<string>();
 
 // Matches common test-runner invocations. Word boundary `\b` is intentional so
 // substrings inside larger commands still register (e.g. `pnpm run -- pnpm test`).
@@ -45,9 +51,15 @@ export function classify(event: AgentEvent): Classification {
     const toolName = event.toolName ?? "tool";
     const args = event.toolArgsSummary ?? "";
     const zone = toolToZone(toolName, args);
+    const animation = zoneToAnimation(zone);
+    const key = `${toolName}:${zone}:${animation}`;
+    if (!seenClassifications.has(key)) {
+      seenClassifications.add(key);
+      logger.debug("classifier new classification path", { toolName, zone, animation });
+    }
     return {
       zone,
-      animation: zoneToAnimation(zone),
+      animation,
       tooltip: `${toolName} ${args}`.trim(),
       timelineText: `${toolName}(${args})`
     };

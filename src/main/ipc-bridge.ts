@@ -3,6 +3,7 @@ import type { SessionStore, SessionPatch } from "./session-store";
 import type { SessionWatcher } from "./session-watcher";
 import type { HookServer } from "./hook-server";
 import type { AgentEvent, AgentState, SessionState } from "../shared/types";
+import { logger } from "./logger";
 
 /**
  * Serializable projection of a `SessionState` for IPC transit. The live
@@ -35,6 +36,7 @@ export function wireIpc(opts: {
   hookServer: HookServer;
 }): { dispose: () => void } {
   const { window, store, watcher, hookServer } = opts;
+  logger.info("IPC bridge wiring");
 
   const onWatcherEvent = (e: AgentEvent): void => store.apply(e);
   const onHookEvent = (e: AgentEvent): void => store.apply(e);
@@ -44,6 +46,10 @@ export function wireIpc(opts: {
   const onPatch = (patch: SessionPatch): void => {
     if (patch.changes.length === 0) return;
     if (window.isDestroyed()) return;
+    logger.debug("IPC bridge forwarding patch", {
+      sessionId: patch.sessionId,
+      changes: patch.changes.length
+    });
     window.webContents.send("session:patch", patch);
   };
   store.on("patch", onPatch);
@@ -69,6 +75,7 @@ export function wireIpc(opts: {
 
   return {
     dispose: () => {
+      logger.info("IPC bridge disposing");
       clearInterval(ghostInterval);
       watcher.off("event", onWatcherEvent);
       hookServer.off("event", onHookEvent);

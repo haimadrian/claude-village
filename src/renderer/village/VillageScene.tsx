@@ -2,6 +2,7 @@
 import { useEffect, useRef } from "react";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
+import { logger } from "../logger";
 // `three-stdlib` is a transitive dep of @react-three/drei but not a direct
 // dependency, so its types are not resolvable from this project. Fall back to
 // `any` for the imperative ref - the only methods we touch are `target.set`
@@ -31,6 +32,13 @@ export function VillageScene({ sessionId }: VillageSceneProps) {
   const grid = buildWalkableGrid();
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
 
+  useEffect(() => {
+    logger.debug("VillageScene mounted", { sessionId });
+    return () => {
+      logger.debug("VillageScene unmounted", { sessionId });
+    };
+  }, [sessionId]);
+
   // Listen for global focus-agent events (dispatched by TimelineStrip clicks).
   // We compute the target zone position fresh each time rather than capturing
   // it; that way the handler stays correct even as the agent moves zones.
@@ -45,6 +53,11 @@ export function VillageScene({ sessionId }: VillageSceneProps) {
       if (zoneIdx < 0) return;
       const pos = computeZonePositions()[zoneIdx];
       if (!pos) return;
+      logger.info("VillageScene focus-agent fired", {
+        sessionId,
+        agentId,
+        zone: agent.currentZone
+      });
       controlsRef.current?.target.set(pos[0], 1, pos[2]);
       controlsRef.current?.update();
     };

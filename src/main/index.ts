@@ -5,6 +5,7 @@ import { SessionWatcher } from "./session-watcher";
 import { HookServer } from "./hook-server";
 import { SessionStore } from "./session-store";
 import { wireIpc } from "./ipc-bridge";
+import { logger } from "./logger";
 
 // Respect the same override Claude Code itself uses so power users with a
 // non-default config dir still see their sessions. Falls back to the
@@ -23,7 +24,23 @@ const hookServer = new HookServer();
 // "Attempted to register a second handler for ...".
 let bridge: { dispose: () => void } | null = null;
 
+process.on("uncaughtException", (err) => {
+  logger.error("uncaughtException in main process", {
+    message: err.message,
+    stack: err.stack
+  });
+});
+
+process.on("unhandledRejection", (reason) => {
+  const err = reason instanceof Error ? reason : new Error(String(reason));
+  logger.error("unhandledRejection in main process", {
+    message: err.message,
+    stack: err.stack
+  });
+});
+
 async function createWindow(): Promise<void> {
+  logger.info("creating main window");
   const win = new BrowserWindow({
     width: 1280,
     height: 800,
@@ -38,6 +55,7 @@ async function createWindow(): Promise<void> {
   bridge?.dispose();
   bridge = wireIpc({ window: win, store, watcher, hookServer });
   win.on("closed", () => {
+    logger.info("main window closed");
     bridge?.dispose();
     bridge = null;
   });
@@ -50,6 +68,7 @@ async function createWindow(): Promise<void> {
 }
 
 app.whenReady().then(async () => {
+  logger.info("app ready", { watchRoot, userData: app.getPath("userData") });
   const template: Electron.MenuItemConstructorOptions[] = [
     {
       label: "claude-village",
@@ -73,6 +92,7 @@ app.whenReady().then(async () => {
 });
 
 app.on("before-quit", async () => {
+  logger.info("before-quit: shutting down watcher and hook server");
   await watcher.stop();
   await hookServer.stop();
 });

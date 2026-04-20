@@ -3,6 +3,7 @@ import { EventEmitter } from "node:events";
 import type { AddressInfo } from "node:net";
 import type { AgentEvent } from "../shared/types";
 import { summarizeArgs } from "./event-normalizer";
+import { logger } from "./logger";
 
 /**
  * Listens on a loopback HTTP port for Claude Code hook payloads and emits
@@ -31,12 +32,14 @@ export class HookServer extends EventEmitter {
 
       const onError = (err: Error): void => {
         server.removeListener("listening", onListening);
+        logger.error("HookServer listen error", { message: err.message, preferredPort });
         reject(err);
       };
       const onListening = (): void => {
         server.removeListener("error", onError);
         const addr = server.address() as AddressInfo | string | null;
         const port = addr && typeof addr === "object" ? addr.port : preferredPort;
+        logger.info("HookServer listening", { port, host: "127.0.0.1" });
         resolve(port);
       };
 
@@ -50,6 +53,7 @@ export class HookServer extends EventEmitter {
     const server = this.server;
     this.server = null;
     if (!server) return;
+    logger.info("HookServer stopping");
     await new Promise<void>((resolve) => {
       server.close(() => resolve());
     });
@@ -71,6 +75,7 @@ export class HookServer extends EventEmitter {
       try {
         payload = JSON.parse(body);
       } catch {
+        logger.warn("HookServer 400 malformed JSON payload", { bytes: body.length });
         res.writeHead(400).end();
         return;
       }

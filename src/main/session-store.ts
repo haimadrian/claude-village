@@ -1,6 +1,7 @@
 import { EventEmitter } from "node:events";
 import Database from "better-sqlite3";
 import { classify } from "./classifier";
+import { logger } from "./logger";
 import type { AgentEvent, SessionState, AgentState, TimelineLine } from "../shared/types";
 
 const GHOST_MS = 3 * 60 * 1000;
@@ -48,6 +49,25 @@ export class SessionStore extends EventEmitter {
   }
 
   apply(event: AgentEvent): void {
+    try {
+      this.applyInner(event);
+    } catch (err) {
+      const e = err instanceof Error ? err : new Error(String(err));
+      logger.warn("SessionStore apply failed", {
+        sessionId: event.sessionId,
+        agentId: event.agentId,
+        type: event.type,
+        message: e.message
+      });
+    }
+  }
+
+  private applyInner(event: AgentEvent): void {
+    logger.debug("SessionStore applying event", {
+      sessionId: event.sessionId,
+      agentId: event.agentId,
+      type: event.type
+    });
     let session = this.sessions.get(event.sessionId);
     if (!session) {
       session = {
@@ -66,6 +86,10 @@ export class SessionStore extends EventEmitter {
     const changes: SessionPatch["changes"] = [];
 
     if (event.type === "session-start") {
+      logger.info("SessionStore session started", {
+        sessionId: event.sessionId,
+        agentId: event.agentId
+      });
       session.status = "active";
       this.ensureAgent(session, event.agentId, event.kind, event.parentAgentId);
       changes.push({ kind: "session-upsert", session: stripRelations(session) });
@@ -76,6 +100,7 @@ export class SessionStore extends EventEmitter {
       const agent = session.agents.get(event.agentId);
       if (agent) changes.push({ kind: "agent-upsert", agent });
     } else if (event.type === "session-end") {
+      logger.info("SessionStore session ended", { sessionId: event.sessionId });
       session.status = "ended";
       changes.push({ kind: "session-upsert", session: stripRelations(session) });
     } else if (event.type === "subagent-end") {

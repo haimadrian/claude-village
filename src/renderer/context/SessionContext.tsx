@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import type { AgentState, TimelineLine } from "../../shared/types";
 import type { SessionPatch } from "../types/ipc-client";
+import { logger } from "../logger";
 
 export interface TabSession {
   sessionId: string;
@@ -66,32 +67,40 @@ export function SessionProvider({ children }: { children: React.ReactNode }): JS
       setSessions((prev) => {
         const next = new Map(prev);
         let session = next.get(p.sessionId);
-        for (const change of p.changes) {
-          if (change.kind === "session-upsert") {
-            if (!session) {
-              session = {
-                sessionId: p.sessionId,
-                startedAt: change.session.startedAt,
-                lastActivityAt: change.session.lastActivityAt,
-                status: change.session.status,
-                agents: new Map(),
-                timeline: [],
-                pinned: false
-              };
+        try {
+          for (const change of p.changes) {
+            if (change.kind === "session-upsert") {
+              if (!session) {
+                session = {
+                  sessionId: p.sessionId,
+                  startedAt: change.session.startedAt,
+                  lastActivityAt: change.session.lastActivityAt,
+                  status: change.session.status,
+                  agents: new Map(),
+                  timeline: [],
+                  pinned: false
+                };
+              }
+              session = { ...session, ...change.session };
+            } else if (change.kind === "agent-upsert" && session) {
+              const agents = new Map(session.agents);
+              agents.set(change.agent.id, change.agent);
+              session = { ...session, agents };
+            } else if (change.kind === "agent-remove" && session) {
+              const agents = new Map(session.agents);
+              agents.delete(change.agentId);
+              session = { ...session, agents };
+            } else if (change.kind === "timeline-append" && session) {
+              const timeline = [...session.timeline, change.line].slice(-500);
+              session = { ...session, timeline };
             }
-            session = { ...session, ...change.session };
-          } else if (change.kind === "agent-upsert" && session) {
-            const agents = new Map(session.agents);
-            agents.set(change.agent.id, change.agent);
-            session = { ...session, agents };
-          } else if (change.kind === "agent-remove" && session) {
-            const agents = new Map(session.agents);
-            agents.delete(change.agentId);
-            session = { ...session, agents };
-          } else if (change.kind === "timeline-append" && session) {
-            const timeline = [...session.timeline, change.line].slice(-500);
-            session = { ...session, timeline };
           }
+        } catch (err) {
+          const e = err instanceof Error ? err : new Error(String(err));
+          logger.warn("SessionContext failed to apply IPC patch", {
+            sessionId: p.sessionId,
+            message: e.message
+          });
         }
         if (session) next.set(p.sessionId, session);
         return next;
@@ -115,6 +124,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }): JS
   const setActiveTab = useCallback((id: string) => setActiveTabId(id), []);
 
   const openTab = useCallback((id: string) => {
+    logger.info("session tab opened", { sessionId: id });
     setClosedTabIds((prev) => {
       if (!prev.has(id)) return prev;
       const n = new Set(prev);
@@ -126,6 +136,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }): JS
   }, []);
 
   const closeTab = useCallback((id: string) => {
+    logger.info("session tab closed", { sessionId: id });
     setOpenTabIds((prev) => prev.filter((x) => x !== id));
     setClosedTabIds((prev) => {
       if (prev.has(id)) return prev;
@@ -141,6 +152,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }): JS
       const s = prev.get(id);
       if (!s) return prev;
       const pinned = !s.pinned;
+      logger.info("session pin toggled", { sessionId: id, pinned });
       const next = new Map(prev);
       next.set(id, { ...s, pinned });
       void (pinned ? window.claudeVillage.pinSession(id) : window.claudeVillage.unpinSession(id));
