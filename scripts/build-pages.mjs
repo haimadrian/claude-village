@@ -52,139 +52,177 @@ const docs = [
 // --- Shared layout ----------------------------------------------------------
 
 const css = `
+/* --- Palette (blue, deliberately restful) ------------------------------- */
+:root {
+  --bg:          #0b1220;
+  --bg-elev:    #0f1a2e;
+  --panel:      #101c35;
+  --panel-2:    #132240;
+  --border:     #1f2e4a;
+  --border-str: #2a3f66;
+  --text:       #e6eef9;
+  --text-mute:  #9fb3cf;
+  --text-soft:  #7b8da9;
+  --accent:     #7cc4ff;
+  --accent-h:   #a5d7ff;
+  --active-bg:  #1b3561;
+  --hover-bg:   #15223e;
+  --hero-from:  #1a3a78;
+  --hero-to:    #0b1220;
+  --shadow:     0 10px 40px rgba(0, 0, 0, 0.6);
+}
+
 *, *::before, *::after { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; overflow-x: hidden; }
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
-  background: #0e1a0e;
-  color: #e6ecd9;
-  line-height: 1.55;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   word-wrap: break-word;
 }
-a { color: #8fd9a8; text-decoration: none; }
-a:hover { text-decoration: underline; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { color: var(--accent-h); text-decoration: underline; }
 code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
-code { background: rgba(255, 255, 255, 0.08); padding: 1px 5px; border-radius: 3px; font-size: 0.92em; word-break: break-word; }
-pre { background: #152215; padding: 14px 18px; border-radius: 6px; overflow: auto; border: 1px solid #253625; -webkit-overflow-scrolling: touch; }
-pre code { background: none; padding: 0; word-break: normal; }
+code { background: rgba(124, 196, 255, 0.12); color: #dfeeff; padding: 1px 5px; border-radius: 3px; font-size: 0.92em; word-break: break-word; }
+pre { background: var(--panel-2); color: #dfeeff; padding: 14px 18px; border-radius: 8px; overflow: auto; border: 1px solid var(--border); -webkit-overflow-scrolling: touch; }
+pre code { background: none; padding: 0; word-break: normal; color: inherit; }
 table { border-collapse: collapse; margin: 12px 0; width: 100%; display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
-th, td { border: 1px solid #2a3b2a; padding: 6px 10px; text-align: left; }
-th { background: #18251a; }
-blockquote { border-left: 3px solid #3b6b3b; margin: 0; padding: 2px 16px; color: #c9d1ba; background: #132013; }
-h1, h2, h3, h4 { color: #f1f5e8; }
-h1 { font-size: 28px; margin-top: 0; line-height: 1.2; }
-h2 { margin-top: 36px; border-bottom: 1px solid #253625; padding-bottom: 6px; }
+th, td { border: 1px solid var(--border); padding: 6px 10px; text-align: left; }
+th { background: var(--panel); }
+blockquote { border-left: 3px solid var(--accent); margin: 0; padding: 2px 16px; color: var(--text-mute); background: var(--panel); border-radius: 0 6px 6px 0; }
+h1, h2, h3, h4 { color: #f2f7ff; }
+h1 { font-size: 30px; margin-top: 0; line-height: 1.2; letter-spacing: -0.01em; }
+h2 { margin-top: 36px; border-bottom: 1px solid var(--border); padding-bottom: 6px; }
 img { max-width: 100%; height: auto; }
 
-/* Hidden checkbox that drives the mobile sidebar drawer via CSS only. */
-.nav-toggle { display: none; }
+/* --- Structural layout --------------------------------------------------- */
 
-/* Mobile top bar - visible only on small screens. */
+/* Hidden checkbox drives the mobile drawer via CSS-only sibling selectors.
+   It lives at the top of <body>, so the sidebar (also a top-level sibling)
+   is reachable via `.nav-toggle:checked ~ aside.nav`. */
+.nav-toggle { position: absolute; left: -9999px; opacity: 0; }
+
 .topbar {
   display: none;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 14px;
-  background: #101c10;
-  border-bottom: 1px solid #1f2d1f;
+  padding: 12px 16px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
   position: sticky; top: 0; z-index: 20;
 }
-.topbar .brand { display: flex; align-items: center; gap: 8px; font-weight: 600; color: #f1f5e8; }
+.topbar .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; color: #f2f7ff; }
 .topbar .brand .mark { font-size: 20px; }
 .nav-toggle-label {
   display: none;
   cursor: pointer;
   font-size: 22px;
   line-height: 1;
-  color: #cfe0bf;
-  padding: 6px 10px;
+  color: var(--text-mute);
+  padding: 6px 12px;
   border-radius: 6px;
-  border: 1px solid #253625;
+  border: 1px solid var(--border);
   -webkit-user-select: none;
   user-select: none;
 }
-.nav-toggle-label:hover { background: #17241a; }
+.nav-toggle-label:hover { background: var(--hover-bg); color: var(--text); }
 
-.layout { display: grid; grid-template-columns: 260px 1fr; min-height: 100vh; }
 aside.nav {
-  background: #101c10;
-  border-right: 1px solid #1f2d1f;
-  padding: 20px 16px;
-  position: sticky; top: 0; max-height: 100vh; overflow: auto;
+  position: fixed;
+  top: 0; left: 0;
+  width: 260px; height: 100vh;
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+  padding: 22px 18px;
+  overflow: auto;
+  z-index: 40;
 }
-aside.nav .brand { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
+aside.nav .brand { display: flex; align-items: center; gap: 10px; margin-bottom: 22px; }
 aside.nav .brand .mark { font-size: 22px; }
-aside.nav .brand strong { font-size: 16px; color: #f1f5e8; }
-aside.nav h4 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: #7fa380; margin: 18px 0 6px; }
+aside.nav .brand strong { font-size: 16px; color: #f2f7ff; }
+aside.nav h4 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-soft); margin: 20px 0 6px; }
 aside.nav ul { list-style: none; padding: 0; margin: 0; }
 aside.nav li { margin: 2px 0; }
-aside.nav a { display: block; padding: 8px 10px; border-radius: 5px; color: #cfe0bf; }
-aside.nav a:hover { background: #17241a; text-decoration: none; }
-aside.nav a.active { background: #22372a; color: #eaf5dd; }
+aside.nav a { display: block; padding: 8px 10px; border-radius: 6px; color: var(--text-mute); font-size: 14px; }
+aside.nav a:hover { background: var(--hover-bg); color: var(--text); text-decoration: none; }
+aside.nav a.active { background: var(--active-bg); color: #f2f7ff; }
 aside.nav .ext::after { content: " \u2197"; opacity: 0.6; }
 
 .nav-backdrop { display: none; }
 
-main.content { padding: 40px 56px; max-width: 920px; min-width: 0; }
+main.content {
+  margin-left: 260px;
+  padding: 48px 56px;
+  max-width: 980px;
+  min-width: 0;
+}
 
 .hero {
-  background: linear-gradient(135deg, #18301f 0%, #0e1a0e 100%);
-  padding: 36px 40px;
-  border-radius: 10px;
-  border: 1px solid #223424;
-  margin-bottom: 28px;
+  background: linear-gradient(135deg, var(--hero-from) 0%, var(--hero-to) 100%);
+  padding: 40px 44px;
+  border-radius: 12px;
+  border: 1px solid var(--border-str);
+  margin-bottom: 32px;
+  box-shadow: var(--shadow);
 }
-.hero .tagline { font-size: 16px; color: #cfe0bf; max-width: 640px; }
+.hero .tagline { font-size: 16px; color: #cfdcf0; max-width: 680px; line-height: 1.6; }
 
-.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-top: 18px; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; margin-top: 18px; }
 .card {
   display: block;
-  background: #132013;
-  border: 1px solid #223424;
-  border-radius: 8px;
-  padding: 16px 18px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 18px 20px;
   color: inherit;
+  transition: transform 120ms ease, border-color 120ms ease, background 120ms ease;
 }
-.card:hover { background: #182a1a; text-decoration: none; border-color: #2f4a31; }
-.card .title { font-weight: 600; color: #f1f5e8; margin-bottom: 4px; }
-.card .desc { font-size: 13px; color: #a7bca1; }
+.card:hover {
+  background: var(--bg-elev);
+  text-decoration: none;
+  border-color: var(--border-str);
+  transform: translateY(-1px);
+}
+.card .title { font-weight: 600; color: #f2f7ff; margin-bottom: 6px; font-size: 15px; }
+.card .desc { font-size: 13px; color: var(--text-mute); line-height: 1.5; }
 
-/* Tablet: narrow but still two columns, slightly tighter padding. */
+/* --- Tablet + mobile ----------------------------------------------------- */
+
 @media (max-width: 1024px) {
-  main.content { padding: 32px 36px; }
-  .hero { padding: 28px 28px; }
+  main.content { padding: 36px 36px; }
+  .hero { padding: 32px 28px; }
 }
 
-/* Mobile: stack layout, turn the sidebar into a slide-in drawer. */
 @media (max-width: 760px) {
-  .layout { grid-template-columns: 1fr; }
   .topbar { display: flex; }
   .nav-toggle-label { display: inline-flex; align-items: center; }
 
   aside.nav {
-    position: fixed;
-    top: 0; left: 0;
-    width: 80vw; max-width: 320px; height: 100vh;
-    max-height: none;
+    width: 82vw;
+    max-width: 320px;
     transform: translateX(-102%);
     transition: transform 200ms ease;
-    z-index: 40;
-    border-right: 1px solid #1f2d1f;
-    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
+    box-shadow: var(--shadow);
   }
+  .nav-toggle:checked ~ aside.nav { transform: translateX(0); }
   .nav-backdrop {
     display: none;
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.55);
+    background: rgba(3, 8, 20, 0.6);
+    backdrop-filter: blur(2px);
     z-index: 30;
   }
-  .nav-toggle:checked ~ aside.nav { transform: translateX(0); }
   .nav-toggle:checked ~ .nav-backdrop { display: block; }
 
-  main.content { padding: 20px 16px; max-width: 100%; }
-  .hero { padding: 22px 20px; border-radius: 8px; }
+  main.content {
+    margin-left: 0;
+    padding: 20px 16px;
+    max-width: 100%;
+  }
+  .hero { padding: 24px 20px; border-radius: 10px; }
   .hero h1 { font-size: 24px; }
   .hero .tagline { font-size: 15px; }
   h2 { margin-top: 28px; }
@@ -232,6 +270,9 @@ ${docsLinks}
 }
 
 function page({ title, slug, body, root }) {
+  // Sidebar, backdrop, topbar, and main are all direct children of <body> so
+  // the checkbox-hack mobile drawer's sibling selector (`.nav-toggle ~ aside`)
+  // works without any JS.
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -247,13 +288,11 @@ function page({ title, slug, body, root }) {
   <div class="brand"><span class="mark">\u{1F9F1}</span> claude-village</div>
   <label for="nav-toggle" class="nav-toggle-label" aria-label="Open navigation">\u2630</label>
 </header>
-<div class="layout">
 ${sidebar(slug, root)}
-  <label for="nav-toggle" class="nav-backdrop" aria-hidden="true"></label>
-  <main class="content">
+<label for="nav-toggle" class="nav-backdrop" aria-hidden="true"></label>
+<main class="content">
 ${body}
-  </main>
-</div>
+</main>
 </body>
 </html>
 `;
