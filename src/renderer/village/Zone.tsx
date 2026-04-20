@@ -26,7 +26,12 @@ export function Zone({ meta, position }: ZoneProps) {
         <boxGeometry args={[0.2, 2, 0.2]} />
         <meshStandardMaterial color="#8b5a2b" />
       </mesh>
-      <Html position={[0, 3, 0]} center userData={{ tooltipKind: "zone-icon", zoneId: meta.id }}>
+      <Html
+        position={[0, 3, 0]}
+        center
+        zIndexRange={[100, 0]}
+        userData={{ tooltipKind: "zone-icon", zoneId: meta.id }}
+      >
         <div style={{ fontSize: 28, pointerEvents: "auto", cursor: "help", userSelect: "none" }}>
           {meta.icon}
         </div>

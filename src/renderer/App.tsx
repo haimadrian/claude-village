@@ -1,10 +1,16 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { SessionProvider, useSessions } from "./context/SessionContext";
 import { VillageScene } from "./village/VillageScene";
 import { TimelineStrip } from "./village/TimelineStrip";
 import { BubbleDrawer } from "./village/BubbleDrawer";
 import { SettingsScreen } from "./settings/SettingsScreen";
 import { AboutModal } from "./settings/AboutModal";
+import {
+  FILTER_CHANGED_EVENT,
+  filterMs,
+  loadFilter,
+  type SessionAgeFilter
+} from "./settings/sessionFilter";
 
 const ACTIVE_MS = 60_000;
 const IDLE_MS = 10 * 60_000;
@@ -33,6 +39,7 @@ function Shell(): JSX.Element {
     useSessions();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [ageFilter, setAgeFilter] = useState<SessionAgeFilter>(() => loadFilter());
 
   // Preload may not fully populate during dev; guard for existence so the
   // renderer does not crash before the bridge is ready.
@@ -42,6 +49,31 @@ function Shell(): JSX.Element {
       unsubscribe?.();
     };
   }, []);
+
+  // React to filter changes dispatched from the Settings screen without
+  // requiring a reload. The custom event fires synchronously after saveFilter.
+  useEffect(() => {
+    const handler = (e: Event): void => {
+      const detail = (e as CustomEvent<{ filter?: SessionAgeFilter }>).detail;
+      if (detail?.filter) {
+        setAgeFilter(detail.filter);
+      } else {
+        setAgeFilter(loadFilter());
+      }
+    };
+    window.addEventListener(FILTER_CHANGED_EVENT, handler);
+    return () => {
+      window.removeEventListener(FILTER_CHANGED_EVENT, handler);
+    };
+  }, []);
+
+  const visibleSessions = useMemo(() => {
+    const cutoff = filterMs(ageFilter);
+    const now = Date.now();
+    const list = Array.from(sessions.values()).sort((a, b) => b.lastActivityAt - a.lastActivityAt);
+    if (cutoff === null) return list;
+    return list.filter((s) => now - s.lastActivityAt <= cutoff);
+  }, [sessions, ageFilter]);
 
   return (
     <div
@@ -64,26 +96,24 @@ function Shell(): JSX.Element {
       >
         <h3 style={{ margin: 0, fontSize: 14 }}>Sessions</h3>
         <ul style={{ listStyle: "none", padding: 0, marginTop: 8 }}>
-          {Array.from(sessions.values())
-            .sort((a, b) => b.lastActivityAt - a.lastActivityAt)
-            .map((s) => {
-              const live = deriveStatus(s);
-              return (
-                <li key={s.sessionId} style={{ marginBottom: 4 }}>
-                  <button
-                    onClick={() => openTab(s.sessionId)}
-                    style={{
-                      all: "unset",
-                      cursor: "pointer",
-                      fontSize: 12,
-                      opacity: live === "active" ? 1 : live === "idle" ? 0.7 : 0.45
-                    }}
-                  >
-                    {s.sessionId.slice(0, 8)} ({live})
-                  </button>
-                </li>
-              );
-            })}
+          {visibleSessions.map((s) => {
+            const live = deriveStatus(s);
+            return (
+              <li key={s.sessionId} style={{ marginBottom: 4 }}>
+                <button
+                  onClick={() => openTab(s.sessionId)}
+                  style={{
+                    all: "unset",
+                    cursor: "pointer",
+                    fontSize: 12,
+                    opacity: live === "active" ? 1 : live === "idle" ? 0.7 : 0.45
+                  }}
+                >
+                  {s.sessionId.slice(0, 8)} ({live})
+                </button>
+              </li>
+            );
+          })}
         </ul>
       </aside>
       <main
@@ -92,7 +122,9 @@ function Shell(): JSX.Element {
           flexDirection: "column",
           background: "#0e1a0e",
           color: "#dde",
-          minWidth: 0
+          minWidth: 0,
+          minHeight: 0,
+          overflow: "hidden"
         }}
       >
         <nav
@@ -138,8 +170,20 @@ function Shell(): JSX.Element {
             );
           })}
         </nav>
-        <section style={{ flex: 1, padding: 24, minWidth: 0, minHeight: 0, overflow: "hidden" }}>
-          {activeTabId ? <TabBody sessionId={activeTabId} /> : <div>No active session</div>}
+        <section
+          style={{
+            flex: 1,
+            minWidth: 0,
+            minHeight: 0,
+            overflow: "hidden",
+            position: "relative"
+          }}
+        >
+          {activeTabId ? (
+            <TabBody sessionId={activeTabId} />
+          ) : (
+            <div style={{ padding: 24 }}>No active session</div>
+          )}
         </section>
       </main>
       <button
@@ -175,10 +219,28 @@ function TabBody({ sessionId }: { sessionId: string }): JSX.Element {
       window.dispatchEvent(new CustomEvent("village:focus-agent", { detail: { agentId: id } })),
     []
   );
-  if (!s) return <div>Loading...</div>;
+  if (!s) return <div style={{ padding: 24 }}>Loading...</div>;
   return (
-    <div style={{ position: "relative", width: "100%", height: "100%" }}>
-      <VillageScene sessionId={sessionId} />
+    <div
+      style={{
+        position: "relative",
+        width: "100%",
+        height: "100%",
+        overflow: "hidden"
+      }}
+    >
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          width: "100%",
+          height: "100%",
+          display: "block",
+          overflow: "hidden"
+        }}
+      >
+        <VillageScene sessionId={sessionId} />
+      </div>
       <div
         style={{
           position: "absolute",

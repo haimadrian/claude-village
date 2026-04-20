@@ -107,7 +107,17 @@ app.whenReady().then(async () => {
   ];
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
   await watcher.start();
-  await hookServer.start(49251);
+  try {
+    await hookServer.start(49251);
+  } catch (err) {
+    // The hook server is a secondary ingress path - JSONL tailing still works
+    // if the preferred port is busy (e.g. a second instance, or an e2e run
+    // alongside the dev app). Log and continue so the window still opens.
+    const e = err instanceof Error ? err : new Error(String(err));
+    logger.warn("HookServer failed to bind; continuing without hook ingress", {
+      message: e.message
+    });
+  }
   await createWindow();
 });
 

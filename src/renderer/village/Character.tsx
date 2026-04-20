@@ -79,7 +79,7 @@ export function Character({ agent, zonePositions, walkable, gridSize }: Characte
         <boxGeometry args={[0.5, 0.5, 0.5]} />
         <meshStandardMaterial color="#f3c89a" transparent={translucent} opacity={opacity} />
       </mesh>
-      <Html position={[0, 2.2, 0]} center>
+      <Html position={[0, 2.2, 0]} center zIndexRange={[100, 0]}>
         <div
           style={{
             fontSize: 14,
@@ -98,7 +98,7 @@ export function Character({ agent, zonePositions, walkable, gridSize }: Characte
         </div>
       </Html>
       {lastAction && (
-        <Html position={[0, 2.8, 0]} center>
+        <Html position={[0, 2.8, 0]} center zIndexRange={[100, 0]}>
           <div
             onClick={(e) => {
               e.stopPropagation();
