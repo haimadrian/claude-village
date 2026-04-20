@@ -23,15 +23,15 @@
 | 4 | `hook-server.ts` + unit tests (HTTP + socket Claude hook listener) | `[x]` | agent-hook-server | afab039 |
 | 5 | `classifier.ts` + unit tests (event -> zone/animation/tooltip) | `[x]` | agent-classifier-orchestrator | bccba07 |
 | 6 | `session-store.ts` + unit tests (in-memory + SQLite snapshot) | `[x]` | agent-session-store-orchestrator | 21532a0 |
-| 7 | `ipc-bridge.ts` (wires 3-6 to ipcMain; depends on 3-6) | `[ ]` | - | - |
+| 7 | `ipc-bridge.ts` (wires 3-6 to ipcMain; depends on 3-6) | `[x]` | agent-ipc-bridge-orchestrator | f0a102e |
 
 ## Renderer parallel block (depends on Task 2; can mock IPC until Task 7)
 
 | # | Task | Status | Owner | Commit / Notes |
 |---|------|--------|-------|----------------|
-| 8 | Tab chrome + sidebar + SessionContext | `[ ]` | - | - |
-| 9 | `VillageScene` + `Zone` (9 zones, orbit camera, walkable grid) | `[ ]` | - | - |
-| 10 | `pathfinding.ts` + unit tests (A* on the voxel grid) | `[ ]` | - | - |
+| 8 | Tab chrome + sidebar + SessionContext | `[x]` | agent-tab-chrome-orchestrator | 7b5a97a |
+| 9 | `VillageScene` + `Zone` (9 zones, orbit camera, walkable grid) | `[x]` | agent-village-scene-orchestrator | a121f89 |
+| 10 | `pathfinding.ts` + unit tests (A* on the voxel grid) | `[x]` | agent-pathfinding-orchestrator | 3d749e4 |
 | 11 | `Character` component (depends on 9 + 10) | `[ ]` | - | - |
 | 12 | `TooltipLayer` (depends on 9 + 11) | `[ ]` | - | - |
 | 13 | `TimelineStrip` with click-to-focus (depends on 8) | `[ ]` | - | - |

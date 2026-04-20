@@ -1,4 +1,5 @@
 import { SessionProvider, useSessions } from "./context/SessionContext";
+import { VillageScene } from "./village/VillageScene";
 
 export default function App(): JSX.Element {
   return (
@@ -102,12 +103,23 @@ function TabBody({ sessionId }: { sessionId: string }): JSX.Element {
   const s = sessions.get(sessionId);
   if (!s) return <div>Loading...</div>;
   return (
-    <div>
-      <h2>{sessionId}</h2>
-      <p>Agents: {s.agents.size}</p>
-      <p>Status: {s.status}</p>
-      {/* TODO(integration): render <VillageScene /> after merge with Task 9 */}
-      <div>Village scene mounts here</div>
+    <div style={{ position: "relative", width: "100%", height: "100%" }}>
+      <VillageScene />
+      <div
+        style={{
+          position: "absolute",
+          top: 12,
+          left: 12,
+          background: "rgba(0,0,0,0.5)",
+          padding: 8,
+          borderRadius: 4,
+          pointerEvents: "none"
+        }}
+      >
+        <div>{sessionId.slice(0, 8)}</div>
+        <div>Agents: {s.agents.size}</div>
+        <div>Status: {s.status}</div>
+      </div>
     </div>
   );
 }
