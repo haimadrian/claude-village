@@ -1,7 +1,8 @@
-name: CI
+name: Unit tests
 on: [push, pull_request]
 jobs:
-  lint-and-test:
+  lint-typecheck-unit:
+    name: Lint, typecheck, and unit tests
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
