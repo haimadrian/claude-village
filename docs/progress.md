@@ -57,7 +57,7 @@
 
 - **ESLint 9 flat-config migration** - currently `ESLINT_USE_FLAT_CONFIG=false` bridges the gap. Port `.eslintrc.cjs` to `eslint.config.js` flat config and drop the env var. Easier to do now than after Tasks 8+ add React component lint rules.
 - ~~**Remove `--passWithNoTests` from the `test` script** once Task 2 or Task 3 lands real tests. Flag hides accidentally-deleted test files from CI.~~ (done in task 3)
-- **`better-sqlite3` native rebuild** - before Task 6 starts, add a `postinstall` step (`electron-builder install-app-deps` or `@electron/rebuild`) and declare `pnpm.onlyBuiltDependencies: ["better-sqlite3", "electron"]` in `package.json`. Without this, Task 6 will throw `NODE_MODULE_VERSION mismatch` the first time the main process requires `better-sqlite3`.
+- ~~**`better-sqlite3` native rebuild** - before Task 6 starts, add a `postinstall` step (`electron-builder install-app-deps` or `@electron/rebuild`) and declare `pnpm.onlyBuiltDependencies: ["better-sqlite3", "electron"]` in `package.json`. Without this, Task 6 will throw `NODE_MODULE_VERSION mismatch` the first time the main process requires `better-sqlite3`.~~ (done before task 6 - `postinstall` rebuilds for Electron, `pretest` rebuilds for Node since vitest runs under Node 20)
 
 ## Accepted spec deviations from Task 1 (documented for posterity)
 

@@ -6,16 +6,23 @@
   "type": "module",
   "main": "out/main/index.js",
   "scripts": {
-    "dev": "electron-vite dev",
+    "dev": "pnpm run rebuild:electron && electron-vite dev",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
-    "package": "electron-builder --mac",
+    "package": "pnpm run rebuild:electron && electron-builder --mac",
+    "postinstall": "electron-builder install-app-deps",
+    "rebuild:electron": "electron-builder install-app-deps",
+    "rebuild:node": "pnpm rebuild better-sqlite3",
+    "pretest": "pnpm run rebuild:node",
     "lint": "ESLINT_USE_FLAT_CONFIG=false eslint src --ext .ts,.tsx && prettier --check \"src/**/*.{ts,tsx,json,md}\"",
     "lint:fix": "ESLINT_USE_FLAT_CONFIG=false eslint src --ext .ts,.tsx --fix && prettier --write \"src/**/*.{ts,tsx,json,md}\"",
     "typecheck": "tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.web.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "e2e": "playwright test"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["better-sqlite3", "electron", "esbuild"]
   },
   "dependencies": {
     "better-sqlite3": "^11.3.0",
