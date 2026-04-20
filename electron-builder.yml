@@ -1,0 +1,13 @@
+appId: com.haimadrian.claudevillage
+productName: claude-village
+directories:
+  output: release
+files:
+  - out/**/*
+  - package.json
+mac:
+  category: public.app-category.developer-tools
+  target: dmg
+  icon: build/icon.png
+  hardenedRuntime: false
+  identity: null
