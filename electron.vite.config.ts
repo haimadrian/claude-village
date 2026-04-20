@@ -8,7 +8,16 @@ export default defineConfig({
   },
   preload: {
     plugins: [externalizeDepsPlugin()],
-    build: { outDir: "out/preload", rollupOptions: { input: "src/preload/index.ts" } }
+    build: {
+      outDir: "out/preload",
+      rollupOptions: {
+        input: "src/preload/index.ts",
+        // Electron's preload context requires CommonJS (even though our main
+        // process is ESM). Force a .cjs output so `require("electron")` works
+        // inside the preload sandbox.
+        output: { format: "cjs", entryFileNames: "index.cjs" }
+      }
+    }
   },
   renderer: {
     root: "src/renderer",

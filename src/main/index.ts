@@ -14,7 +14,7 @@ const watchRoot = process.env.CLAUDE_CONFIG_DIR
   ? path.join(process.env.CLAUDE_CONFIG_DIR, "projects")
   : path.join(os.homedir(), ".claude", "projects");
 
-const store = new SessionStore(path.join(app.getPath("userData"), "village.db"));
+const store = new SessionStore(path.join(app.getPath("userData"), "pinned.json"));
 const watcher = new SessionWatcher(watchRoot);
 const hookServer = new HookServer();
 
@@ -46,7 +46,7 @@ async function createWindow(): Promise<void> {
     height: 800,
     title: "claude-village",
     webPreferences: {
-      preload: path.join(__dirname, "../preload/index.js"),
+      preload: path.join(__dirname, "../preload/index.cjs"),
       contextIsolation: true,
       nodeIntegration: false
     }
@@ -64,6 +64,26 @@ async function createWindow(): Promise<void> {
     void win.loadURL(process.env.ELECTRON_RENDERER_URL);
   } else {
     void win.loadFile(path.join(__dirname, "../renderer/index.html"));
+  }
+
+  win.webContents.on("preload-error", (_e, preloadPath, error) => {
+    logger.error("preload failed to load", {
+      preloadPath,
+      message: error.message,
+      stack: error.stack
+    });
+  });
+  win.webContents.on(
+    "did-fail-load",
+    (_e, errorCode: number, errorDescription: string, validatedURL: string) => {
+      logger.error("renderer failed to load", { errorCode, errorDescription, validatedURL });
+    }
+  );
+  win.webContents.on("render-process-gone", (_e, details) => {
+    logger.error("renderer process gone", { details });
+  });
+  if (process.env.CV_DEBUG === "1") {
+    win.webContents.openDevTools({ mode: "detach" });
   }
 }
 

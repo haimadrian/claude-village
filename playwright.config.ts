@@ -4,6 +4,5 @@ export default defineConfig({
   testDir: "./tests/e2e",
   testMatch: /.*\.spec\.ts/,
   timeout: 30_000,
-  globalSetup: "./tests/e2e/global-setup.ts",
   use: { headless: true, trace: "retain-on-failure", video: "retain-on-failure" }
 });

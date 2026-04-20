@@ -1,5 +1,6 @@
 import { EventEmitter } from "node:events";
-import Database from "better-sqlite3";
+import fs from "node:fs";
+import path from "node:path";
 import { classify } from "./classifier";
 import { logger } from "./logger";
 import type { AgentEvent, SessionState, AgentState, TimelineLine } from "../shared/types";
@@ -18,14 +19,26 @@ export interface SessionPatch {
   >;
 }
 
+/**
+ * In-memory session state plus a tiny JSON file for the pinned-session list.
+ *
+ * We used to use `better-sqlite3` here, but the only thing we actually persist
+ * is a set of pinned session ids - there is no SQL to speak of, and the native
+ * module turned into a packaging nightmare (ABI mismatches, pnpm symlink
+ * issues, node-gyp/python dependencies). A flat JSON file on disk is
+ * dramatically simpler and works everywhere Electron does.
+ *
+ * Pass ":memory:" for `pinnedPath` in unit tests to skip all disk I/O.
+ */
 export class SessionStore extends EventEmitter {
   private sessions = new Map<string, SessionState>();
-  private db: Database.Database;
+  private pinnedIds = new Set<string>();
+  private readonly pinnedPath: string;
 
-  constructor(dbPath: string) {
+  constructor(pinnedPath: string) {
     super();
-    this.db = new Database(dbPath);
-    this.db.exec(`CREATE TABLE IF NOT EXISTS pinned (session_id TEXT PRIMARY KEY)`);
+    this.pinnedPath = pinnedPath === ":memory:" ? "" : pinnedPath;
+    this.loadPinned();
   }
 
   listSessions(): SessionState[] {
@@ -37,15 +50,19 @@ export class SessionStore extends EventEmitter {
   }
 
   isPinned(id: string): boolean {
-    return !!this.db.prepare("SELECT 1 FROM pinned WHERE session_id=?").get(id);
+    return this.pinnedIds.has(id);
   }
 
   pin(id: string): void {
-    this.db.prepare("INSERT OR IGNORE INTO pinned VALUES (?)").run(id);
+    if (this.pinnedIds.has(id)) return;
+    this.pinnedIds.add(id);
+    this.flushPinned();
   }
 
   unpin(id: string): void {
-    this.db.prepare("DELETE FROM pinned WHERE session_id=?").run(id);
+    if (!this.pinnedIds.has(id)) return;
+    this.pinnedIds.delete(id);
+    this.flushPinned();
   }
 
   apply(event: AgentEvent): void {
@@ -193,6 +210,33 @@ export class SessionStore extends EventEmitter {
     };
     session.agents.set(id, state);
     return state;
+  }
+
+  private loadPinned(): void {
+    if (!this.pinnedPath) return;
+    try {
+      const content = fs.readFileSync(this.pinnedPath, "utf8");
+      const parsed: unknown = JSON.parse(content);
+      if (Array.isArray(parsed)) {
+        for (const id of parsed) if (typeof id === "string") this.pinnedIds.add(id);
+      }
+    } catch {
+      // Missing or malformed file - start with no pins. Not an error.
+    }
+  }
+
+  private flushPinned(): void {
+    if (!this.pinnedPath) return;
+    try {
+      fs.mkdirSync(path.dirname(this.pinnedPath), { recursive: true });
+      fs.writeFileSync(this.pinnedPath, JSON.stringify(Array.from(this.pinnedIds)));
+    } catch (err) {
+      const e = err instanceof Error ? err : new Error(String(err));
+      logger.warn("SessionStore flush pinned failed", {
+        pinnedPath: this.pinnedPath,
+        message: e.message
+      });
+    }
   }
 }
 

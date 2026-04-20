@@ -6,15 +6,10 @@
   "type": "module",
   "main": "out/main/index.js",
   "scripts": {
-    "dev": "pnpm run rebuild:electron && electron-vite dev",
+    "dev": "electron-vite dev",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
-    "package": "pnpm run rebuild:electron && electron-builder --mac",
-    "postinstall": "electron-builder install-app-deps",
-    "rebuild:electron": "electron-builder install-app-deps",
-    "rebuild:node": "pnpm rebuild better-sqlite3",
-    "pretest": "pnpm run rebuild:node",
-    "posttest": "pnpm run rebuild:electron",
+    "package": "electron-builder --mac",
     "lint": "ESLINT_USE_FLAT_CONFIG=false eslint src --ext .ts,.tsx && prettier --check \"src/**/*.{ts,tsx,json,md}\"",
     "lint:fix": "ESLINT_USE_FLAT_CONFIG=false eslint src --ext .ts,.tsx --fix && prettier --write \"src/**/*.{ts,tsx,json,md}\"",
     "typecheck": "tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.web.json --noEmit",
@@ -23,23 +18,17 @@
     "e2e": "playwright test"
   },
   "pnpm": {
-    "onlyBuiltDependencies": [
-      "better-sqlite3",
-      "electron",
-      "esbuild"
-    ]
+    "onlyBuiltDependencies": ["electron", "esbuild"]
   },
   "dependencies": {
-    "better-sqlite3": "^11.3.0",
     "chokidar": "^4.0.1",
     "electron-log": "^5.4.3",
     "pathfinding": "^0.4.18"
   },
   "devDependencies": {
-    "@playwright/test": "^1.47.0",
+    "@playwright/test": "1.50.1",
     "@react-three/drei": "^9.114.0",
     "@react-three/fiber": "^8.17.0",
-    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22.7.0",
     "@types/pathfinding": "^0.0.9",
     "@types/react": "^18.3.0",

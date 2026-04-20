@@ -56,8 +56,13 @@ export function SessionProvider({ children }: { children: React.ReactNode }): JS
         });
       }
       setSessions(map);
+      // Only auto-open tabs for sessions that received activity in the last
+      // 60 seconds. Anything older is reachable via the sidebar - without
+      // this guard the app flips open a tab for every historical JSONL on
+      // disk and pushes the village off-screen.
+      const ACTIVE_WINDOW_MS = 60_000;
       const active = list
-        .filter((s) => Date.now() - s.lastActivityAt < 10 * 60 * 1000)
+        .filter((s) => Date.now() - s.lastActivityAt < ACTIVE_WINDOW_MS)
         .map((s) => s.sessionId);
       setOpenTabIds(active);
       setActiveTabId(active[0] ?? null);

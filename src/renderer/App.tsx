@@ -33,8 +33,10 @@ function Shell(): JSX.Element {
     <div
       style={{
         display: "grid",
-        gridTemplateColumns: "240px 1fr",
+        gridTemplateColumns: "240px minmax(0, 1fr)",
         height: "100vh",
+        width: "100vw",
+        overflow: "hidden",
         fontFamily: "Inter, -apple-system, sans-serif"
       }}
     >
@@ -65,14 +67,19 @@ function Shell(): JSX.Element {
           display: "flex",
           flexDirection: "column",
           background: "#0e1a0e",
-          color: "#dde"
+          color: "#dde",
+          minWidth: 0
         }}
       >
         <nav
           style={{
             display: "flex",
             background: "#182418",
-            borderBottom: "1px solid #2a3"
+            borderBottom: "1px solid #2a3",
+            overflowX: "auto",
+            overflowY: "hidden",
+            flexShrink: 0,
+            maxWidth: "100%"
           }}
         >
           {openTabIds.map((id) => {
@@ -87,7 +94,8 @@ function Shell(): JSX.Element {
                   borderRight: "1px solid #2a3",
                   display: "flex",
                   gap: 8,
-                  alignItems: "center"
+                  alignItems: "center",
+                  flexShrink: 0
                 }}
               >
                 <button
@@ -106,7 +114,7 @@ function Shell(): JSX.Element {
             );
           })}
         </nav>
-        <section style={{ flex: 1, padding: 24 }}>
+        <section style={{ flex: 1, padding: 24, minWidth: 0, minHeight: 0, overflow: "hidden" }}>
           {activeTabId ? <TabBody sessionId={activeTabId} /> : <div>No active session</div>}
         </section>
       </main>
