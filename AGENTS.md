@@ -31,9 +31,9 @@ Read these three files in this order:
 
 ## Stack quick reference
 
-- Electron 33 (main + preload + renderer).
+- Electron 33 (main + preload + renderer). Preload is emitted as CJS (`out/preload/index.cjs`).
 - Renderer: React 18, Vite, `@react-three/fiber`, `@react-three/drei`, Three.js 0.169.
-- Main: Node 20, `chokidar`, `better-sqlite3`, `pathfinding`.
+- Main: Node 20, `chokidar`, `pathfinding`, `electron-log`. No native modules.
 - Tests: Vitest (unit), Playwright (e2e).
 - Package manager: pnpm 9.
 
@@ -42,4 +42,5 @@ Read these three files in this order:
 - Repo root: `~/Documents/GIT/claude-village`
 - Claude sessions watched: `~/.claude/projects/**/*.jsonl` (overridable via `CLAUDE_CONFIG_DIR`)
 - Hook server listens: `127.0.0.1:49251` (also `/tmp/claude-village.sock`)
-- SQLite snapshot: `{app userData}/village.db`
+- Pinned session ids snapshot: `{app userData}/pinned.json`
+- Log file: `{app userData}/logs/main.log` (rolling 5MB x 3)

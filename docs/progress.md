@@ -22,7 +22,7 @@
 | 3 | `session-watcher.ts` + unit tests (JSONL tailing, offset tracking) | `[x]` | agent-session-watcher | 91249bf |
 | 4 | `hook-server.ts` + unit tests (HTTP + socket Claude hook listener) | `[x]` | agent-hook-server | afab039 |
 | 5 | `classifier.ts` + unit tests (event -> zone/animation/tooltip) | `[x]` | agent-classifier-orchestrator | bccba07 |
-| 6 | `session-store.ts` + unit tests (in-memory + SQLite snapshot) | `[x]` | agent-session-store-orchestrator | 21532a0 |
+| 6 | `session-store.ts` + unit tests (in-memory + JSON `pinned.json` snapshot) | `[x]` | agent-session-store-orchestrator | 21532a0 |
 | 7 | `ipc-bridge.ts` (wires 3-6 to ipcMain; depends on 3-6) | `[x]` | agent-ipc-bridge-orchestrator | f0a102e |
 
 ## Renderer parallel block (depends on Task 2; can mock IPC until Task 7)
@@ -56,15 +56,25 @@
 ## Tech debt / follow-ups (not blocking, track here)
 
 - **ESLint 9 flat-config migration** - currently `ESLINT_USE_FLAT_CONFIG=false` bridges the gap. Port `.eslintrc.cjs` to `eslint.config.js` flat config and drop the env var. Easier to do now than after Tasks 8+ add React component lint rules.
-- ~~**Remove `--passWithNoTests` from the `test` script** once Task 2 or Task 3 lands real tests. Flag hides accidentally-deleted test files from CI.~~ (done in task 3)
-- ~~**`better-sqlite3` native rebuild** - before Task 6 starts, add a `postinstall` step (`electron-builder install-app-deps` or `@electron/rebuild`) and declare `pnpm.onlyBuiltDependencies: ["better-sqlite3", "electron"]` in `package.json`. Without this, Task 6 will throw `NODE_MODULE_VERSION mismatch` the first time the main process requires `better-sqlite3`.~~ (done before task 6 - `postinstall` rebuilds for Electron, `pretest` rebuilds for Node since vitest runs under Node 20)
+- ~~**Remove `--passWithNoTests` from the `test` script** once Task 2 or Task 3 lands real tests.~~ (done in task 3; flag is fully removed from `package.json`)
+- ~~**`better-sqlite3` native rebuild** - before Task 6 starts, add a `postinstall` step and `pnpm.onlyBuiltDependencies`.~~ **Resolved by dropping `better-sqlite3` entirely.** Task 6 was reworked to snapshot pinned session ids to a plain JSON file at `{userData}/pinned.json` via `src/main/session-store.ts`. No native modules, no rebuild dance, no ABI flip.
+
+## Post-v1 status
+
+- **Shipping.** All 17 tasks complete, M5 reached. A signed-off-locally DMG is produced by `pnpm package`.
+- **Key simplifications since the design doc was written:**
+  - No native modules (dropped `better-sqlite3` for a JSON snapshot at `{userData}/pinned.json`).
+  - No rebuild dance - `pnpm package` is just `electron-builder --mac`.
+  - Preload is emitted as CommonJS (`out/preload/index.cjs`) because Electron's preload sandbox rejects ESM.
+- **Logging live** - `electron-log` writes to `{userData}/logs/main.log` (rolling 5MB x 3). INFO by default, DEBUG when `CV_DEBUG=1`.
+- **CI test reports** - Vitest emits JUnit + HTML + v8 coverage under `reports/` when `CI=true`; Playwright emits HTML + JUnit under `playwright-report/`. Both uploaded as GitHub Actions artifacts and published via `dorny/test-reporter`.
+- **E2E coverage** - grew from 1 to 3 specs: session-in-sidebar, active-auto-opens-tab (+ canvas renders), and Settings gear to About flow with Esc close.
 
 ## Accepted spec deviations from Task 1 (documented for posterity)
 
 - `vite` added as a direct devDependency (needed so `tsconfig.web.json`'s `"types": ["vite/client"]` resolves without relying on pnpm hoisting).
 - `@vitejs/plugin-react` pinned to `^4.7.0` (Vite 5 / electron-vite 2.3 compat).
 - `ESLINT_USE_FLAT_CONFIG=false` added to `lint` and `lint:fix` scripts (see tech debt above).
-- `--passWithNoTests` added to the `test` script (see tech debt above).
 
 ## Post-v1 upgrade path (not part of the 17-task plan)
 

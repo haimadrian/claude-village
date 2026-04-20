@@ -63,7 +63,19 @@ Logs for the main process live at:
 ~/Library/Application Support/claude-village/logs/main.log
 ```
 
-Renderer logs are visible via `View -> Toggle Developer Tools` (Cmd+Option+I).
+The log is a rolling file (5MB each, up to 3 retained). INFO by default, DEBUG if
+you launched with `CV_DEBUG=1` in the environment.
+
+Renderer logs are visible via `View -> Toggle Developer Tools` (Cmd+Option+I), and
+also forward into `main.log`.
+
+### Blank window after launch
+
+If the main window opens but stays blank (no sidebar, no tabs), tail
+`~/Library/Application Support/claude-village/logs/main.log` - the cause is almost
+always a preload load error (for example from an old app bundle that was built with
+an ESM preload before the CJS fix). Reinstall from the latest
+`claude-village-<version>-arm64.dmg` on the releases page.
 
 ## Uninstalling
 

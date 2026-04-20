@@ -66,7 +66,8 @@ Electron app, two processes.
 |          classifier (pure)                        |
 |               |                                   |
 |               v                                   |
-|          session-store ---> SQLite snapshot       |
+|          session-store ---> JSON pinned.json       |
+|                               snapshot              |
 |               |                                   |
 |               v                                   |
 |          ipc-bridge                               |
@@ -284,9 +285,11 @@ Tab badges show: agent count, whether the timeline has new unseen lines, and ses
 - **Scene glue:** `@react-three/fiber` for React-idiomatic Three.js composition; `@react-three/drei` for helpers (Html labels, OrbitControls, instanced meshes).
 - **File watching:** `chokidar`.
 - **Pathfinding:** `pathfinding.js` (A* on a 2D grid).
-- **Local storage:** `better-sqlite3` for pinned tabs + known sessions + last-known ghost positions.
-- **Packaging:** `electron-builder` (.dmg output).
-- **Testing:** Vitest (unit) + Playwright (integration).
+- **Local storage:** plain JSON file at `{userData}/pinned.json` for pinned tab ids. (Originally planned as `better-sqlite3`; dropped after v1 to avoid native-module builds, rebuild dance, and packaging friction. The pinned-id set is small and writes are rare, so a JSON snapshot is sufficient.)
+- **Logging:** `electron-log` with rolling file at `{userData}/logs/main.log` (5MB x 3). INFO by default, DEBUG when `CV_DEBUG=1`. Renderer logs forward to the main process via `log.initialize()`.
+- **Preload:** CommonJS (`output.format: "cjs"` in `electron.vite.config.ts`, emitted as `out/preload/index.cjs`). Electron's preload sandbox requires CJS, so even though main + renderer are ESM the preload bundle has to be CJS.
+- **Packaging:** `electron-builder` (.dmg output). No `asarUnpack` or `npmRebuild` since there are no native modules.
+- **Testing:** Vitest (unit) + Playwright (integration). Main-process modules are testable under plain Node via `electron` / `electron-log` stubs aliased from `tests/unit/stubs/` in `vitest.config.ts`.
 - **Linting:** ESLint + Prettier + TypeScript strict mode.
 
 ## 14. Asset tiers (staged upgrade path)
@@ -356,3 +359,8 @@ Tasks 3-6 and 8-15 each touch their own module and can be implemented by a separ
 - Historical replay mode (scrub through a past session) - natural extension once JSONL parsing and scene rendering are in place.
 - Multi-window support (one window per session instead of tabs) - postponed unless it becomes a pain point.
 - Telemetry / opt-in usage metrics - not in v1.
+
+### Lessons learned during v1
+
+- **SQLite was overkill.** The original tech stack picked `better-sqlite3` for pinned tabs, known sessions, and last-known ghost positions. In practice only the pinned-id set needed to survive across app restarts, and it is a tiny integer-set that writes rarely. The native-module story (electron rebuild, pnpm `onlyBuiltDependencies`, `pretest` / `posttest` flips between Node and Electron ABIs, `electron-builder` `asarUnpack`) kept breaking the packaging flow on every environment change. After v1 we dropped `better-sqlite3` entirely in favor of a JSON snapshot at `{userData}/pinned.json`. If a future feature genuinely needs a relational store, revisit - but start with JSON and only escalate if you hit real limits.
+- **Electron preload must be CJS.** The preload sandbox does not load ESM modules. `electron-vite`'s preload build is configured with `output.format: "cjs"` and an `index.cjs` entry. The main process and renderer stay ESM.

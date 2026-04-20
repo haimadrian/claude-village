@@ -15,14 +15,22 @@ panes:
 - A tabbed main area on the right that shows the village view for each open session.
 
 When a new session starts in any terminal, it appears in the sidebar and a tab opens
-automatically. When a session goes idle for long enough, its agent turns into a ghost and
-eventually retires.
+automatically if the session is active (any activity in the last 60 seconds). Older
+sessions still show up in the sidebar but do not auto-open a tab; click the row to
+open one manually. When a session goes idle for long enough, its agent turns into a
+ghost and eventually retires.
 
 ## Sidebar
 
-The sidebar shows each session's short ID, project, and last-activity timestamp. Click a
-row to open that session in a new tab. A session already open in a tab is highlighted so
-you do not open it twice.
+The sidebar shows each session's short ID, project, and last-activity timestamp,
+sorted by most recent activity first. Status is derived from last activity:
+
+- **active** - activity in the last 60 seconds (auto-opens a tab).
+- **idle** - activity in the last 10 minutes.
+- **ended** - older than 10 minutes (rendered dimmed).
+
+Click a row to open that session in a new tab. A session already open in a tab is
+highlighted so you do not open it twice.
 
 ## The village (the tab body)
 
@@ -60,9 +68,14 @@ Hover any of the following for a tooltip:
 
 ### Speech bubbles
 
-When an agent emits a user-facing message, a short speech bubble pops up above its head.
-Click the bubble to open the right-side **bubble drawer**, which shows the full message
-text plus metadata (timestamp, tool, parent agent). Press `Esc` to close the drawer.
+Each character has a name label floating above its head and, when it is saying
+something, a short speech bubble directly under the label. Both are rendered at a
+fixed on-screen size (name 14px, bubble 13px, with a subtle shadow) so they stay
+readable at any camera angle or zoom level.
+
+Click the speech bubble to open the right-side **bubble drawer**, which shows the
+full message text plus metadata (timestamp, tool, parent agent). Press `Esc` to
+close the drawer.
 
 ## Timeline strip
 
@@ -97,10 +110,14 @@ Shows the current version and a link to the GitHub repo.
 
 ## Tabs
 
-- New active sessions auto-open as tabs.
-- Right-click a tab to **pin** it - pinned tabs stay open across app restarts.
+- New active sessions (activity within the last 60 seconds) auto-open as tabs.
+- Right-click a tab to **pin** it - pinned tabs stay open across app restarts. Pin
+  state is persisted to `{userData}/pinned.json`.
 - Click the `x` on a tab to close it. Closing a tab does not affect the underlying
   Claude Code session.
+- The tab bar scrolls horizontally when you have more tabs than fit the window,
+  while the village view keeps its full width, so no session pushes the 3D scene
+  off-screen.
 
 ## Keyboard shortcuts
 
