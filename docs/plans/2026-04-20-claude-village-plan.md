@@ -771,7 +771,7 @@ Expected: PASS all 3 tests.
 
 ```bash
 git add src/main/session-watcher.ts tests/unit/session-watcher.test.ts tests/fixtures/sample-session.jsonl
-git commit -m "feat(main): add session-watcher with JSONL tailing and offset tracking"
+git commit -m "feat: add session-watcher with JSONL tailing and offset tracking"
 ```
 
 ---
@@ -926,7 +926,7 @@ Expected: PASS both tests.
 
 ```bash
 git add src/main/hook-server.ts tests/unit/hook-server.test.ts
-git commit -m "feat(main): add HTTP hook server for Claude Code event payloads"
+git commit -m "feat: add HTTP hook server for Claude Code event payloads"
 ```
 
 ---
@@ -1095,7 +1095,7 @@ Expected: PASS all 14 tests.
 
 ```bash
 git add src/main/classifier.ts tests/unit/classifier.test.ts
-git commit -m "feat(main): classify agent events into zones and animations"
+git commit -m "feat: classify agent events into zones and animations"
 ```
 
 ---
@@ -1344,7 +1344,7 @@ Expected: PASS all 7 tests.
 
 ```bash
 git add src/main/session-store.ts tests/unit/session-store.test.ts
-git commit -m "feat(main): session store with agent state, ghost expiry, and SQLite pinning"
+git commit -m "feat: session store with agent state, ghost expiry, and SQLite pinning"
 ```
 
 ---
@@ -1485,7 +1485,7 @@ Expected: returns `[]` (or an array of any existing sessions).
 
 ```bash
 git add src/main/ipc-bridge.ts src/main/index.ts src/preload/index.ts
-git commit -m "feat(main): wire watcher, hook server, and store via ipc-bridge"
+git commit -m "feat: wire watcher, hook server, and store via ipc-bridge"
 ```
 
 ---
@@ -1733,7 +1733,7 @@ Expected: left sidebar shows sessions (empty on first run), top tab bar, main ar
 
 ```bash
 git add src/renderer/context src/renderer/types src/renderer/App.tsx
-git commit -m "feat(renderer): tab chrome, sidebar, and session context wired to IPC"
+git commit -m "feat: tab chrome, sidebar, and session context wired to IPC"
 ```
 
 ---
@@ -1866,7 +1866,7 @@ Expected: inside an open tab, see 9 colored zone platforms arranged in a ring on
 
 ```bash
 git add src/renderer/village/VillageScene.tsx src/renderer/village/Zone.tsx src/renderer/App.tsx
-git commit -m "feat(renderer): render 9-zone village with orbit camera + walkable grid builder"
+git commit -m "feat: render 9-zone village with orbit camera + walkable grid builder"
 ```
 
 ---
@@ -1946,7 +1946,7 @@ Expected: PASS all 3 tests.
 
 ```bash
 git add src/renderer/village/pathfinding.ts tests/unit/pathfinding.test.ts
-git commit -m "feat(renderer): A* pathfinding over the village walkable grid"
+git commit -m "feat: A* pathfinding over the village walkable grid"
 ```
 
 ---
@@ -2121,7 +2121,7 @@ Start a Claude Code session in another terminal and run `Read`-style tool calls.
 
 ```bash
 git add src/renderer/village/Character.tsx src/renderer/village/VillageScene.tsx src/renderer/App.tsx
-git commit -m "feat(renderer): character entities that pathfind between zones"
+git commit -m "feat: character entities that pathfind between zones"
 ```
 
 ---
@@ -2245,7 +2245,7 @@ Expected: hovering over any zone platform for >200ms shows a dark tooltip with t
 
 ```bash
 git add src/renderer/village/TooltipLayer.tsx src/renderer/village/VillageScene.tsx
-git commit -m "feat(renderer): raycast-based tooltips for zones and characters"
+git commit -m "feat: raycast-based tooltips for zones and characters"
 ```
 
 ---
@@ -2381,7 +2381,7 @@ Expected: thin "▲ Timeline (N)" strip at the bottom of a tab. Click to expand 
 
 ```bash
 git add src/renderer/village/TimelineStrip.tsx src/renderer/village/VillageScene.tsx src/renderer/App.tsx
-git commit -m "feat(renderer): collapsible timeline strip with click-to-focus"
+git commit -m "feat: collapsible timeline strip with click-to-focus"
 ```
 
 ---
@@ -2512,7 +2512,7 @@ Expected: each agent shows a small `...` bubble with the last action (≤60 char
 
 ```bash
 git add src/renderer/village/conversation.ts src/renderer/village/BubbleDrawer.tsx src/renderer/village/Character.tsx src/renderer/App.tsx
-git commit -m "feat(renderer): speech bubbles with click-to-open drawer"
+git commit -m "feat: speech bubbles with click-to-open drawer"
 ```
 
 ---

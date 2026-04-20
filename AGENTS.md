@@ -16,7 +16,7 @@ Read these three files in this order:
 - Claim the task by editing `docs/progress.md` (set status to `[~]`, add your agent id and timestamp). Commit that change before starting implementation.
 - Follow the plan's steps for your task exactly. If a step says "write failing test", write the test first and run it to confirm it fails before implementing.
 - One commit per task by default. Small extra commits for distinct fixes are fine.
-- Commit message format: `feat(scope): ...` / `fix: ...` / `test: ...` / `chore: ...` / `docs: ...`.
+- Commit message format: `feat: ...` / `fix: ...` / `test: ...` / `chore: ...` / `docs: ...`. No scope parenthetical, no team prefix.
 - Never skip pre-commit hooks (no `--no-verify`).
 - Before every commit run: `pnpm lint && pnpm typecheck && pnpm test` (and `pnpm e2e` if relevant).
 - Style: no em dashes in any file (use `-`), no arrows (use `->`).
