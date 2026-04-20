@@ -32,11 +32,11 @@
 | 8 | Tab chrome + sidebar + SessionContext | `[x]` | agent-tab-chrome-orchestrator | 7b5a97a |
 | 9 | `VillageScene` + `Zone` (9 zones, orbit camera, walkable grid) | `[x]` | agent-village-scene-orchestrator | a121f89 |
 | 10 | `pathfinding.ts` + unit tests (A* on the voxel grid) | `[x]` | agent-pathfinding-orchestrator | 3d749e4 |
-| 11 | `Character` component (depends on 9 + 10) | `[ ]` | - | - |
+| 11 | `Character` component (depends on 9 + 10) | `[x]` | agent-11-orchestrator | 0c76cfd |
 | 12 | `TooltipLayer` (depends on 9 + 11) | `[ ]` | - | - |
-| 13 | `TimelineStrip` with click-to-focus (depends on 8) | `[ ]` | - | - |
+| 13 | `TimelineStrip` with click-to-focus (depends on 8) | `[x]` | agent-13-orchestrator | b986313 |
 | 14 | Conversation animations + bubble drawer (depends on 11 + 12) | `[ ]` | - | - |
-| 15 | `SettingsScreen` + About modal (depends on 8) | `[ ]` | - | - |
+| 15 | `SettingsScreen` + About modal (depends on 8) | `[x]` | agent-15-orchestrator | 78bced5 |
 
 ## Integration and ship
 
