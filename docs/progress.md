@@ -21,7 +21,7 @@
 |---|------|--------|-------|----------------|
 | 3 | `session-watcher.ts` + unit tests (JSONL tailing, offset tracking) | `[x]` | agent-session-watcher | 91249bf |
 | 4 | `hook-server.ts` + unit tests (HTTP + socket Claude hook listener) | `[x]` | agent-hook-server | afab039 |
-| 5 | `classifier.ts` + unit tests (event -> zone/animation/tooltip) | `[~]` | agent-classifier-orchestrator (2026-04-20) | - |
+| 5 | `classifier.ts` + unit tests (event -> zone/animation/tooltip) | `[x]` | agent-classifier-orchestrator | bccba07 |
 | 6 | `session-store.ts` + unit tests (in-memory + SQLite snapshot) | `[ ]` | - | - |
 | 7 | `ipc-bridge.ts` (wires 3-6 to ipcMain; depends on 3-6) | `[ ]` | - | - |
 
