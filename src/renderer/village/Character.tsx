@@ -83,7 +83,7 @@ export function Character({ agent, zonePositions, walkable, gridSize }: Characte
         <div
           title={`${agent.kind === "main" ? "Mayor" : "Villager"} - ${agent.id}`}
           style={{
-            fontSize: 14,
+            fontSize: 16,
             fontWeight: 600,
             background: "rgba(0,0,0,0.75)",
             color: "#fff",
@@ -110,7 +110,7 @@ export function Character({ agent, zonePositions, walkable, gridSize }: Characte
             title={lastAction.summary}
             style={{
               cursor: "pointer",
-              fontSize: 13,
+              fontSize: 14,
               background: "rgba(255,255,255,0.95)",
               color: "#111",
               padding: "3px 8px",

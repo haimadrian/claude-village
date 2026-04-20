@@ -116,9 +116,7 @@ app.whenReady().then(async () => {
     //
     // Tests override via `CV_HOOK_PORT=0` to bind a random port so e2e runs
     // don't collide with a developer's live app.
-    const hookPort = process.env.CV_HOOK_PORT
-      ? Number(process.env.CV_HOOK_PORT)
-      : 49251;
+    const hookPort = process.env.CV_HOOK_PORT ? Number(process.env.CV_HOOK_PORT) : 49251;
     await hookServer.start(hookPort);
   } catch (err) {
     const e = err instanceof Error ? err : new Error(String(err));

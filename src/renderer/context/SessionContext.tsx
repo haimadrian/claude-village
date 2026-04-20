@@ -23,6 +23,7 @@ interface Ctx {
   togglePin: (id: string) => void;
   openTab: (id: string) => void;
   refreshSessions: () => Promise<void>;
+  refreshSession: (sessionId: string) => Promise<void>;
 }
 
 const SessionCtx = createContext<Ctx | null>(null);
@@ -197,6 +198,38 @@ export function SessionProvider({ children }: { children: React.ReactNode }): JS
     }
   }, []);
 
+  const refreshSession = useCallback(async (sessionId: string): Promise<void> => {
+    // Force-refresh a single session by re-fetching the authoritative snapshot
+    // from the main process and replacing the entry in state. We preserve the
+    // local `pinned` flag because it lives purely on the renderer side.
+    try {
+      const snapshot = await window.claudeVillage.getSession(sessionId);
+      if (!snapshot) return;
+      setSessions((prev) => {
+        const next = new Map(prev);
+        const existing = next.get(sessionId);
+        const pinned = existing?.pinned ?? false;
+        next.set(sessionId, {
+          sessionId: snapshot.sessionId,
+          startedAt: snapshot.startedAt,
+          lastActivityAt: snapshot.lastActivityAt,
+          status: snapshot.status,
+          ...(snapshot.title !== undefined ? { title: snapshot.title } : {}),
+          agents: new Map(snapshot.agents.map((a) => [a.id, a])),
+          timeline: snapshot.timeline,
+          pinned
+        });
+        return next;
+      });
+    } catch (err) {
+      const e = err instanceof Error ? err : new Error(String(err));
+      logger.warn("SessionContext refreshSession failed", {
+        sessionId,
+        message: e.message
+      });
+    }
+  }, []);
+
   const togglePin = useCallback((id: string) => {
     setSessions((prev) => {
       const s = prev.get(id);
@@ -220,7 +253,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }): JS
         closeTab,
         togglePin,
         openTab,
-        refreshSessions
+        refreshSessions,
+        refreshSession
       }}
     >
       {children}

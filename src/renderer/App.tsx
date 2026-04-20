@@ -15,6 +15,15 @@ import {
 const ACTIVE_MS = 60_000;
 const IDLE_MS = 10 * 60_000;
 
+// Injected once at the root so the Electron window itself never scrolls and
+// so the tab nav can scroll horizontally without showing the scrollbar chrome.
+const GLOBAL_STYLE = `
+html, body { margin: 0; height: 100%; overflow: hidden; }
+#root { height: 100%; overflow: hidden; }
+.cv-no-scrollbar::-webkit-scrollbar { display: none; }
+@keyframes cv-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+`;
+
 function deriveStatus(s: {
   status: "active" | "idle" | "ended";
   lastActivityAt: number;
@@ -101,15 +110,21 @@ function Shell(): JSX.Element {
         height: "100vh",
         width: "100vw",
         overflow: "hidden",
+        minHeight: 0,
+        minWidth: 0,
         fontFamily: "Inter, -apple-system, sans-serif"
       }}
     >
+      <style>{GLOBAL_STYLE}</style>
       <aside
         style={{
           background: "#1f2a1f",
           color: "#dde",
           overflow: "auto",
-          padding: 12
+          padding: 12,
+          display: "flex",
+          flexDirection: "column",
+          minHeight: 0
         }}
       >
         <div
@@ -120,7 +135,7 @@ function Shell(): JSX.Element {
             gap: 8
           }}
         >
-          <h3 style={{ margin: 0, fontSize: 14 }}>Sessions</h3>
+          <h3 style={{ margin: 0, fontSize: 15 }}>Sessions</h3>
           <button
             onClick={onRefreshClick}
             disabled={refreshing}
@@ -150,12 +165,7 @@ function Shell(): JSX.Element {
             </span>
           </button>
         </div>
-        <style>
-          {
-            "@keyframes cv-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }"
-          }
-        </style>
-        <ul style={{ listStyle: "none", padding: 0, marginTop: 8 }}>
+        <ul style={{ listStyle: "none", padding: 0, marginTop: 8, flex: 1, minHeight: 0 }}>
           {visibleSessions.map((s) => {
             const live = deriveStatus(s);
             const label = s.title ?? s.sessionId.slice(0, 8);
@@ -168,7 +178,9 @@ function Shell(): JSX.Element {
                   style={{
                     all: "unset",
                     cursor: "pointer",
-                    fontSize: 12,
+                    fontSize: 14,
+                    padding: "5px 4px",
+                    display: "block",
                     opacity: live === "active" ? 1 : live === "idle" ? 0.7 : 0.45
                   }}
                 >
@@ -178,6 +190,36 @@ function Shell(): JSX.Element {
             );
           })}
         </ul>
+        <button
+          onClick={() => setSettingsOpen(true)}
+          title="Settings"
+          aria-label="Open settings"
+          style={{
+            marginTop: 8,
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            width: "100%",
+            textAlign: "left",
+            background: "transparent",
+            color: "#dde",
+            border: "none",
+            borderRadius: 6,
+            padding: "8px 10px",
+            cursor: "pointer",
+            fontSize: 14,
+            fontFamily: "inherit"
+          }}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.background = "#17241a";
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.background = "transparent";
+          }}
+        >
+          <span aria-hidden="true">{"\u2699"}</span>
+          <span>Settings</span>
+        </button>
       </aside>
       <main
         style={{
@@ -187,10 +229,12 @@ function Shell(): JSX.Element {
           color: "#dde",
           minWidth: 0,
           minHeight: 0,
+          height: "100%",
           overflow: "hidden"
         }}
       >
         <nav
+          className="cv-no-scrollbar"
           style={{
             display: "flex",
             background: "#182418",
@@ -198,7 +242,9 @@ function Shell(): JSX.Element {
             overflowX: "auto",
             overflowY: "hidden",
             flexShrink: 0,
-            maxWidth: "100%"
+            maxWidth: "100%",
+            scrollbarWidth: "none",
+            msOverflowStyle: "none"
           }}
         >
           {openTabIds.map((id) => {
@@ -252,25 +298,6 @@ function Shell(): JSX.Element {
           )}
         </section>
       </main>
-      <button
-        onClick={() => setSettingsOpen(true)}
-        title="Settings"
-        aria-label="Open settings"
-        style={{
-          position: "fixed",
-          top: 8,
-          right: 8,
-          zIndex: 100,
-          background: "#1f2a1f",
-          color: "#eee",
-          border: "1px solid #2a3",
-          borderRadius: 4,
-          padding: "4px 8px",
-          cursor: "pointer"
-        }}
-      >
-        ⚙
-      </button>
       {settingsOpen && <SettingsScreen onClose={() => setSettingsOpen(false)} />}
       {aboutOpen && <AboutModal onClose={() => setAboutOpen(false)} />}
     </div>
@@ -278,13 +305,20 @@ function Shell(): JSX.Element {
 }
 
 function TabBody({ sessionId }: { sessionId: string }): JSX.Element {
-  const { sessions } = useSessions();
+  const { sessions, refreshSession } = useSessions();
+  const [refreshing, setRefreshing] = useState(false);
   const s = sessions.get(sessionId);
   const onFocusAgent = useCallback(
     (id: string) =>
       window.dispatchEvent(new CustomEvent("village:focus-agent", { detail: { agentId: id } })),
     []
   );
+  const onRefreshSession = useCallback(() => {
+    setRefreshing(true);
+    void refreshSession(sessionId).finally(() => {
+      window.setTimeout(() => setRefreshing(false), 600);
+    });
+  }, [refreshSession, sessionId]);
   if (!s) return <div style={{ padding: 24 }}>Loading...</div>;
   return (
     <div
@@ -322,6 +356,35 @@ function TabBody({ sessionId }: { sessionId: string }): JSX.Element {
         <div>Agents: {s.agents.size}</div>
         <div>Status: {s.status}</div>
       </div>
+      <button
+        onClick={onRefreshSession}
+        disabled={refreshing}
+        title="Refresh session"
+        aria-label="Refresh session"
+        style={{
+          position: "absolute",
+          top: 12,
+          right: 12,
+          zIndex: 10,
+          background: "rgba(0,0,0,0.5)",
+          color: "#dde",
+          border: "1px solid #2a3",
+          borderRadius: 4,
+          padding: "4px 8px",
+          cursor: refreshing ? "default" : "pointer",
+          fontSize: 14,
+          lineHeight: 1
+        }}
+      >
+        <span
+          style={{
+            display: "inline-block",
+            animation: refreshing ? "cv-spin 600ms linear" : "none"
+          }}
+        >
+          {"\u21bb"}
+        </span>
+      </button>
       <TimelineStrip timeline={s.timeline} agents={s.agents} onFocusAgent={onFocusAgent} />
       <BubbleDrawer agents={s.agents} />
     </div>
