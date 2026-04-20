@@ -63,6 +63,27 @@ export function normalizeJsonlEvent(raw: any, rawLine: string): AgentEvent | nul
     };
   }
 
+  if (raw.type === "custom-title" || raw.type === "summary") {
+    const title =
+      typeof raw.title === "string"
+        ? raw.title
+        : typeof raw.summary === "string"
+          ? raw.summary
+          : undefined;
+    if (title) {
+      return {
+        sessionId,
+        agentId: sessionId,
+        kind: "main",
+        timestamp,
+        type: "session-title",
+        sessionTitle: title,
+        rawLine
+      };
+    }
+    return null;
+  }
+
   if (raw.type === "tool_result" || raw.type === "user-tool-result") {
     const summary = extractText(raw.toolUseResult ?? raw.content)?.slice(0, 200);
     logger.debug("normalizeJsonlEvent produced post-tool-use", { sessionId });

@@ -81,6 +81,7 @@ export function Character({ agent, zonePositions, walkable, gridSize }: Characte
       </mesh>
       <Html position={[0, 2.2, 0]} center zIndexRange={[100, 0]}>
         <div
+          title={`${agent.kind === "main" ? "Mayor" : "Villager"} - ${agent.id}`}
           style={{
             fontSize: 14,
             fontWeight: 600,
@@ -89,7 +90,7 @@ export function Character({ agent, zonePositions, walkable, gridSize }: Characte
             padding: "3px 8px",
             borderRadius: 6,
             whiteSpace: "nowrap",
-            pointerEvents: "none",
+            pointerEvents: "auto",
             textShadow: "0 1px 2px rgba(0,0,0,0.5)"
           }}
         >
@@ -106,6 +107,7 @@ export function Character({ agent, zonePositions, walkable, gridSize }: Characte
                 new CustomEvent("village:open-bubble", { detail: { agentId: agent.id } })
               );
             }}
+            title={lastAction.summary}
             style={{
               cursor: "pointer",
               fontSize: 13,

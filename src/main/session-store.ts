@@ -99,7 +99,12 @@ export class SessionStore extends EventEmitter {
       this.sessions.set(event.sessionId, session);
     }
 
-    session.lastActivityAt = event.timestamp;
+    // Session-title updates reflect metadata about a conversation, not
+    // activity. Bumping lastActivityAt for them would cause title events
+    // backfilled from old JSONL files to make stale sessions look active.
+    if (event.type !== "session-title") {
+      session.lastActivityAt = event.timestamp;
+    }
     const changes: SessionPatch["changes"] = [];
 
     if (event.type === "session-start") {
@@ -152,6 +157,11 @@ export class SessionStore extends EventEmitter {
       session.timeline.push(line);
       if (session.timeline.length > TIMELINE_CAP) session.timeline.shift();
       changes.push({ kind: "timeline-append", line });
+    } else if (event.type === "session-title") {
+      if (event.sessionTitle) {
+        session.title = event.sessionTitle;
+        changes.push({ kind: "session-upsert", session: stripRelations(session) });
+      }
     } else if (event.type === "user-message" || event.type === "assistant-message") {
       const line: TimelineLine = {
         id: `${event.sessionId}:${event.timestamp}:${Math.random().toString(36).slice(2, 6)}`,
@@ -246,7 +256,8 @@ function stripRelations(s: SessionState): Omit<SessionState, "agents" | "timelin
     projectPath: s.projectPath,
     startedAt: s.startedAt,
     lastActivityAt: s.lastActivityAt,
-    status: s.status
+    status: s.status,
+    ...(s.title !== undefined ? { title: s.title } : {})
   };
 }
 

@@ -76,6 +76,37 @@ describe("SessionStore", () => {
     expect(diffs).toBe(2);
   });
 
+  it("stores session title from session-title events without bumping lastActivityAt", () => {
+    const startedTs = Date.now() - 60 * 60 * 1000;
+    store.apply(ev({ type: "session-start", timestamp: startedTs }));
+    const before = store.getSession("s1")!;
+    const lastBefore = before.lastActivityAt;
+
+    let captured: string | undefined;
+    store.on("patch", (p) => {
+      for (const c of p.changes) {
+        if (c.kind === "session-upsert" && c.session.title !== undefined) {
+          captured = c.session.title;
+        }
+      }
+    });
+
+    store.apply(
+      ev({
+        type: "session-title",
+        sessionTitle: "Refactoring hook server",
+        timestamp: Date.now()
+      })
+    );
+
+    const after = store.getSession("s1")!;
+    expect(after.title).toBe("Refactoring hook server");
+    // session-title must not count as activity.
+    expect(after.lastActivityAt).toBe(lastBefore);
+    // Patch should carry the title so the renderer can display it.
+    expect(captured).toBe("Refactoring hook server");
+  });
+
   it("expires ghosts past their timer", () => {
     store.apply(ev({ type: "session-start" }));
     store.apply(

@@ -35,11 +35,29 @@ export default function App(): JSX.Element {
 }
 
 function Shell(): JSX.Element {
-  const { sessions, openTabIds, activeTabId, setActiveTab, closeTab, togglePin, openTab } =
-    useSessions();
+  const {
+    sessions,
+    openTabIds,
+    activeTabId,
+    setActiveTab,
+    closeTab,
+    togglePin,
+    openTab,
+    refreshSessions
+  } = useSessions();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [ageFilter, setAgeFilter] = useState<SessionAgeFilter>(() => loadFilter());
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefreshClick = useCallback(() => {
+    setRefreshing(true);
+    void refreshSessions().finally(() => {
+      // Hold the spin briefly even on instant responses so the feedback is
+      // visible; the spin animation itself runs for ~600ms regardless.
+      window.setTimeout(() => setRefreshing(false), 600);
+    });
+  }, [refreshSessions]);
 
   // Preload may not fully populate during dev; guard for existence so the
   // renderer does not crash before the bridge is ready.
@@ -94,14 +112,59 @@ function Shell(): JSX.Element {
           padding: 12
         }}
       >
-        <h3 style={{ margin: 0, fontSize: 14 }}>Sessions</h3>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 8
+          }}
+        >
+          <h3 style={{ margin: 0, fontSize: 14 }}>Sessions</h3>
+          <button
+            onClick={onRefreshClick}
+            disabled={refreshing}
+            title="Refresh"
+            aria-label="Refresh session list"
+            style={{
+              background: "transparent",
+              color: "#dde",
+              border: "1px solid #2a3",
+              borderRadius: 4,
+              padding: "2px 6px",
+              cursor: refreshing ? "default" : "pointer",
+              fontSize: 14,
+              lineHeight: 1,
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center"
+            }}
+          >
+            <span
+              style={{
+                display: "inline-block",
+                animation: refreshing ? "cv-spin 600ms linear" : "none"
+              }}
+            >
+              {"\u21bb"}
+            </span>
+          </button>
+        </div>
+        <style>
+          {
+            "@keyframes cv-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }"
+          }
+        </style>
         <ul style={{ listStyle: "none", padding: 0, marginTop: 8 }}>
           {visibleSessions.map((s) => {
             const live = deriveStatus(s);
+            const label = s.title ?? s.sessionId.slice(0, 8);
+            const truncated = label.length > 28 ? label.slice(0, 27) + "\u2026" : label;
             return (
               <li key={s.sessionId} style={{ marginBottom: 4 }}>
                 <button
                   onClick={() => openTab(s.sessionId)}
+                  title={label}
                   style={{
                     all: "unset",
                     cursor: "pointer",
@@ -109,7 +172,7 @@ function Shell(): JSX.Element {
                     opacity: live === "active" ? 1 : live === "idle" ? 0.7 : 0.45
                   }}
                 >
-                  {s.sessionId.slice(0, 8)} ({live})
+                  {truncated} ({live})
                 </button>
               </li>
             );
@@ -141,6 +204,8 @@ function Shell(): JSX.Element {
           {openTabIds.map((id) => {
             const s = sessions.get(id);
             const isActive = id === activeTabId;
+            const fullLabel = s?.title ?? id.slice(0, 8);
+            const tabLabel = fullLabel.length > 14 ? fullLabel.slice(0, 14) + "\u2026" : fullLabel;
             return (
               <div
                 key={id}
@@ -156,9 +221,10 @@ function Shell(): JSX.Element {
               >
                 <button
                   onClick={() => setActiveTab(id)}
+                  title={fullLabel}
                   style={{ all: "unset", cursor: "pointer" }}
                 >
-                  {id.slice(0, 8)}
+                  {tabLabel}
                 </button>
                 <button onClick={() => togglePin(id)} title="pin">
                   {s?.pinned ? "📌" : "📍"}

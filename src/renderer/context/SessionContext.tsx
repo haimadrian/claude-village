@@ -8,6 +8,7 @@ export interface TabSession {
   startedAt: number;
   lastActivityAt: number;
   status: "active" | "idle" | "ended";
+  title?: string;
   agents: Map<string, AgentState>;
   timeline: TimelineLine[];
   pinned: boolean;
@@ -21,6 +22,7 @@ interface Ctx {
   closeTab: (id: string) => void;
   togglePin: (id: string) => void;
   openTab: (id: string) => void;
+  refreshSessions: () => Promise<void>;
 }
 
 const SessionCtx = createContext<Ctx | null>(null);
@@ -50,6 +52,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }): JS
           startedAt: s.startedAt,
           lastActivityAt: s.lastActivityAt,
           status: s.status,
+          ...(s.title !== undefined ? { title: s.title } : {}),
           agents: new Map(s.agents.map((a) => [a.id, a])),
           timeline: s.timeline,
           pinned: false
@@ -152,6 +155,48 @@ export function SessionProvider({ children }: { children: React.ReactNode }): JS
     setActiveTabId((prev) => (prev === id ? null : prev));
   }, []);
 
+  const refreshSessions = useCallback(async (): Promise<void> => {
+    // Chokidar can miss JSONL files created after startup on some platforms.
+    // This callback re-queries the main process for the authoritative list
+    // and merges any previously unseen sessions into state.
+    try {
+      const list = await window.claudeVillage.listSessions();
+      setSessions((prev) => {
+        const next = new Map(prev);
+        for (const s of list) {
+          const existing = next.get(s.sessionId);
+          if (existing) {
+            // Preserve live in-memory data (timeline/agents) that may be
+            // richer than what the main process serializes back, but pick
+            // up any new title/status/timestamp fields.
+            next.set(s.sessionId, {
+              ...existing,
+              startedAt: s.startedAt,
+              lastActivityAt: s.lastActivityAt,
+              status: s.status,
+              ...(s.title !== undefined ? { title: s.title } : {})
+            });
+          } else {
+            next.set(s.sessionId, {
+              sessionId: s.sessionId,
+              startedAt: s.startedAt,
+              lastActivityAt: s.lastActivityAt,
+              status: s.status,
+              ...(s.title !== undefined ? { title: s.title } : {}),
+              agents: new Map(s.agents.map((a) => [a.id, a])),
+              timeline: s.timeline,
+              pinned: false
+            });
+          }
+        }
+        return next;
+      });
+    } catch (err) {
+      const e = err instanceof Error ? err : new Error(String(err));
+      logger.warn("SessionContext refreshSessions failed", { message: e.message });
+    }
+  }, []);
+
   const togglePin = useCallback((id: string) => {
     setSessions((prev) => {
       const s = prev.get(id);
@@ -167,7 +212,16 @@ export function SessionProvider({ children }: { children: React.ReactNode }): JS
 
   return (
     <SessionCtx.Provider
-      value={{ sessions, openTabIds, activeTabId, setActiveTab, closeTab, togglePin, openTab }}
+      value={{
+        sessions,
+        openTabIds,
+        activeTabId,
+        setActiveTab,
+        closeTab,
+        togglePin,
+        openTab,
+        refreshSessions
+      }}
     >
       {children}
     </SessionCtx.Provider>

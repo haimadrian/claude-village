@@ -21,11 +21,13 @@ export interface AgentEvent {
     | "user-message"
     | "assistant-message"
     | "pre-tool-use"
-    | "post-tool-use";
+    | "post-tool-use"
+    | "session-title";
   toolName?: string;
   toolArgsSummary?: string;
   resultSummary?: string;
   messageExcerpt?: string;
+  sessionTitle?: string;
   rawLine?: string;
 }
 
@@ -53,6 +55,7 @@ export interface SessionState {
   startedAt: number;
   lastActivityAt: number;
   status: "active" | "idle" | "ended";
+  title?: string;
   agents: Map<string, AgentState>; // main-process only; serialized to AgentState[] across IPC
   timeline: TimelineLine[]; // ring buffer, max 500
 }

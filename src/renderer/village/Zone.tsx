@@ -32,7 +32,10 @@ export function Zone({ meta, position }: ZoneProps) {
         zIndexRange={[100, 0]}
         userData={{ tooltipKind: "zone-icon", zoneId: meta.id }}
       >
-        <div style={{ fontSize: 28, pointerEvents: "auto", cursor: "help", userSelect: "none" }}>
+        <div
+          title={`${meta.icon} ${meta.name} - ${meta.description}`}
+          style={{ fontSize: 28, pointerEvents: "auto", cursor: "default", userSelect: "none" }}
+        >
           {meta.icon}
         </div>
       </Html>
