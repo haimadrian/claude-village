@@ -100,8 +100,8 @@ img { max-width: 100%; height: auto; }
 /* --- Structural layout --------------------------------------------------- */
 
 /* Hidden checkbox drives the mobile drawer via CSS-only sibling selectors.
-   It lives at the top of <body>, so the sidebar (also a top-level sibling)
-   is reachable via `.nav-toggle:checked ~ aside.nav`. */
+   Lives at the top of <body>; the sidebar (also a top-level sibling)
+   is matched by .nav-toggle:checked ~ aside.nav below. */
 .nav-toggle { position: absolute; left: -9999px; opacity: 0; }
 
 .topbar {
