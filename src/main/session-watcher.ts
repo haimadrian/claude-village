@@ -3,6 +3,7 @@ import type { FSWatcher } from "chokidar";
 import fs from "node:fs";
 import { EventEmitter } from "node:events";
 import type { AgentEvent } from "../shared/types";
+import { normalizeJsonlEvent } from "./event-normalizer";
 
 /**
  * Watches a root directory for Claude Code JSONL session logs and emits
@@ -39,6 +40,7 @@ export class SessionWatcher extends EventEmitter {
 
     this.watcher.on("add", (file) => this.readFromOffset(file));
     this.watcher.on("change", (file) => this.readFromOffset(file));
+    this.watcher.on("unlink", (file) => this.offsets.delete(file));
   }
 
   async stop(): Promise<void> {
@@ -48,8 +50,16 @@ export class SessionWatcher extends EventEmitter {
   }
 
   private readFromOffset(file: string): void {
+    let size: number;
+    try {
+      size = fs.statSync(file).size;
+    } catch {
+      // File was unlinked between the chokidar event and our stat call. The
+      // unlink handler will clean up this.offsets; nothing to read.
+      return;
+    }
+
     const prevOffset = this.offsets.get(file) ?? 0;
-    const size = fs.statSync(file).size;
     // Truncation or rewrite detection: chokidar only fires `change` when the
     // file actually changed, so if the file is not strictly larger than our
     // cursor we must be looking at a rewrite (same size with different bytes,
@@ -84,8 +94,6 @@ export class SessionWatcher extends EventEmitter {
   }
 
   private parseLine(line: string): AgentEvent | null {
-    // JSONL lines are externally produced and schema-less from our perspective,
-    // so `any` is intentional here - we normalize into the typed AgentEvent below.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let raw: any;
     try {
@@ -95,100 +103,4 @@ export class SessionWatcher extends EventEmitter {
     }
     return normalizeJsonlEvent(raw, line);
   }
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function normalizeJsonlEvent(raw: any, rawLine: string): AgentEvent | null {
-  if (!raw?.sessionId) return null;
-  const timestamp = raw.timestamp ? Date.parse(raw.timestamp) : Date.now();
-  const sessionId: string = raw.sessionId;
-
-  if (raw.type === "user") {
-    const excerpt = extractText(raw.message?.content)?.slice(0, 500);
-    return {
-      sessionId,
-      agentId: sessionId, // main agent shares id with session until subagent tracking lands
-      kind: "main",
-      timestamp,
-      type: "user-message",
-      rawLine,
-      ...(excerpt !== undefined ? { messageExcerpt: excerpt } : {})
-    };
-  }
-
-  if (raw.type === "assistant") {
-    const content = raw.message?.content;
-    const toolUse = Array.isArray(content)
-      ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        content.find((p: any) => p?.type === "tool_use")
-      : null;
-    if (toolUse) {
-      return {
-        sessionId,
-        agentId: sessionId,
-        kind: "main",
-        timestamp,
-        type: "pre-tool-use",
-        toolName: toolUse.name,
-        toolArgsSummary: summarizeArgs(toolUse.name, toolUse.input),
-        rawLine
-      };
-    }
-    const excerpt = extractText(content)?.slice(0, 500);
-    return {
-      sessionId,
-      agentId: sessionId,
-      kind: "main",
-      timestamp,
-      type: "assistant-message",
-      rawLine,
-      ...(excerpt !== undefined ? { messageExcerpt: excerpt } : {})
-    };
-  }
-
-  if (raw.type === "tool_result" || raw.type === "user-tool-result") {
-    const summary = extractText(raw.toolUseResult ?? raw.content)?.slice(0, 200);
-    return {
-      sessionId,
-      agentId: sessionId,
-      kind: "main",
-      timestamp,
-      type: "post-tool-use",
-      rawLine,
-      ...(summary !== undefined ? { resultSummary: summary } : {})
-    };
-  }
-
-  return null;
-}
-
-function extractText(content: unknown): string | undefined {
-  if (typeof content === "string") return content;
-  if (Array.isArray(content)) {
-    return content
-      .map((p: unknown) => {
-        if (typeof p === "string") return p;
-        if (p && typeof p === "object" && "text" in p) {
-          const t = (p as { text?: unknown }).text;
-          return typeof t === "string" ? t : "";
-        }
-        return "";
-      })
-      .filter(Boolean)
-      .join(" ");
-  }
-  return undefined;
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function summarizeArgs(tool: string, input: any): string {
-  if (!input) return "";
-  if (tool === "Read" || tool === "Edit" || tool === "Write") {
-    return String(input.file_path ?? "");
-  }
-  if (tool === "Bash") return String(input.command ?? "").slice(0, 80);
-  if (tool === "Grep" || tool === "Glob") {
-    return String(input.pattern ?? input.path ?? "");
-  }
-  return JSON.stringify(input).slice(0, 80);
 }
