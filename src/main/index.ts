@@ -20,7 +20,8 @@ function createWindow(): void {
   }
 }
 
-app.whenReady().then(createWindow);
+// TODO(task-7): register before-quit to stop watcher + hook-server + close SQLite.
+void app.whenReady().then(createWindow);
 
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();

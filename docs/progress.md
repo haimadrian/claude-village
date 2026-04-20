@@ -53,6 +53,19 @@
 - `M4` - Feature-complete (8-15 complete) - tooltips, timeline, conversations, settings.
 - `M5` - Ship (16, 17 complete) - test green, DMG built.
 
+## Tech debt / follow-ups (not blocking, track here)
+
+- **ESLint 9 flat-config migration** - currently `ESLINT_USE_FLAT_CONFIG=false` bridges the gap. Port `.eslintrc.cjs` to `eslint.config.js` flat config and drop the env var. Easier to do now than after Tasks 8+ add React component lint rules.
+- **Remove `--passWithNoTests` from the `test` script** once Task 2 or Task 3 lands real tests. Flag hides accidentally-deleted test files from CI.
+- **`better-sqlite3` native rebuild** - before Task 6 starts, add a `postinstall` step (`electron-builder install-app-deps` or `@electron/rebuild`) and declare `pnpm.onlyBuiltDependencies: ["better-sqlite3", "electron"]` in `package.json`. Without this, Task 6 will throw `NODE_MODULE_VERSION mismatch` the first time the main process requires `better-sqlite3`.
+
+## Accepted spec deviations from Task 1 (documented for posterity)
+
+- `vite` added as a direct devDependency (needed so `tsconfig.web.json`'s `"types": ["vite/client"]` resolves without relying on pnpm hoisting).
+- `@vitejs/plugin-react` pinned to `^4.7.0` (Vite 5 / electron-vite 2.3 compat).
+- `ESLINT_USE_FLAT_CONFIG=false` added to `lint` and `lint:fix` scripts (see tech debt above).
+- `--passWithNoTests` added to the `test` script (see tech debt above).
+
 ## Post-v1 upgrade path (not part of the 17-task plan)
 
 See design doc Section 14 (Asset tiers). Ships on Tier 1 (programmatic cubes). After M5, queue follow-up mini-plans for:
