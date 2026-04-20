@@ -289,7 +289,26 @@ Tab badges show: agent count, whether the timeline has new unseen lines, and ses
 - **Testing:** Vitest (unit) + Playwright (integration).
 - **Linting:** ESLint + Prettier + TypeScript strict mode.
 
-## 14. Implementation plan
+## 14. Asset tiers (staged upgrade path)
+
+3D assets are tiered. The 17-task implementation plan ships on **Tier 1** only. Tiers 2-4 are follow-up upgrades after v1 is working.
+
+### Tier 1 - Programmatic cubes (ships with v1)
+Characters are literal `boxGeometry` primitives in Three.js: one box for the body, one box for the head, hashed-color tinting per agent id. Zones are flat box platforms; signposts are thin tall boxes; buildings are simple block shapes. Authentically Minecrafty (Minecraft is literal cubes) and requires zero asset pipeline. All 17 tasks complete here.
+
+### Tier 2 - Kenney.nl free asset packs (polish pass 1)
+Swap placeholder boxes for real voxel assets from Kenney's CC0 packs (`Mini Characters 1`, `Character Pack`, `Mini Dungeon`, `Nature Kit`). Kenney assets ship as GLB, loadable via `useGLTF` from `@react-three/drei`. Benefits: proper walk cycles baked into the model, multiple base characters to differentiate mayor vs villagers, hats and accessories to layer for per-agent skin variations. No attribution required, just drop into `src/renderer/village/assets/kenney/`.
+
+### Tier 3 - Custom authored in MagicaVoxel (polish pass 2)
+For zones or props Kenney does not cover (a tavern interior, a Nether portal frame, a specific signpost style), author custom voxel models in MagicaVoxel. MagicaVoxel is free, purpose-built for voxel art, and exports GLTF. Budget is roughly 15 minutes per prop. Assets live in `src/renderer/village/assets/custom/`.
+
+### Tier 4 - AI-generated voxel models (polish pass 3)
+For one-of-a-kind decorative props where authoring by hand is overkill, use text-to-3D tools (Meshy.ai, Luma Genie, Rodin, TripoSR) to generate voxel-style models from prompts. Good for things like "a tiny Minecraft-style campfire with crossed logs" or "a wooden scroll on a wooden stand". Assets live in `src/renderer/village/assets/ai/` with the prompt recorded in a sidecar `.prompt.txt` so they can be regenerated.
+
+### Why tiered and not up-front
+Every later tier is strictly additive. The app works on Tier 1 day one, looks notably better on Tier 2 with zero breaking changes, and gains unique character through Tiers 3-4. This keeps the critical path short and the polish work visible and satisfying (each asset swap is a single PR with obvious before/after).
+
+## 15. Implementation plan
 
 Tasks are chunked so main-process and renderer work can proceed in parallel without touching each other's files. Each task is one commit / PR.
 
@@ -320,7 +339,7 @@ Tasks are chunked so main-process and renderer work can proceed in parallel with
 
 Tasks 3-6 and 8-15 each touch their own module and can be implemented by a separate agent in parallel. The shared-types package (#2) is the synchronization point.
 
-## 15. Repo conventions
+## 16. Repo conventions
 
 - **Repo name:** `claude-village`.
 - **Local path:** `~/Documents/GIT/claude-village`.
@@ -330,7 +349,7 @@ Tasks 3-6 and 8-15 each touch their own module and can be implemented by a separ
 - **PRs:** one per task. CI runs lint + unit tests on every PR.
 - **Docs:** this design doc lives at `docs/design/2026-04-20-claude-village-design.md` and is part of the first commit.
 
-## 16. Open questions / future work
+## 17. Open questions / future work
 
 - Voxel asset pack choice (licensing + aesthetic pick) - defer until task 11.
 - Windows / Linux support - out of scope for v1 but Electron makes it cheap to add later.

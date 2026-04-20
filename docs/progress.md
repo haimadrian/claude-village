@@ -53,6 +53,14 @@
 - `M4` - Feature-complete (8-15 complete) - tooltips, timeline, conversations, settings.
 - `M5` - Ship (16, 17 complete) - test green, DMG built.
 
+## Post-v1 upgrade path (not part of the 17-task plan)
+
+See design doc Section 14 (Asset tiers). Ships on Tier 1 (programmatic cubes). After M5, queue follow-up mini-plans for:
+
+- **Tier 2 asset swap** - import Kenney.nl CC0 voxel packs, replace box characters and zone props with GLB models loaded via `useGLTF`.
+- **Tier 3 custom assets** - author bespoke props in MagicaVoxel (tavern, Nether portal, signposts).
+- **Tier 4 AI-generated props** - use Meshy.ai / Luma / Rodin for one-off decorative items, keep prompts in sidecar files.
+
 ## How to update this file
 
 When an agent starts a task:
