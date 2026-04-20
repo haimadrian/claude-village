@@ -53,26 +53,58 @@ const docs = [
 
 const css = `
 *, *::before, *::after { box-sizing: border-box; }
-html, body { margin: 0; padding: 0; }
+html, body { margin: 0; padding: 0; overflow-x: hidden; }
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
   background: #0e1a0e;
   color: #e6ecd9;
   line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  word-wrap: break-word;
 }
 a { color: #8fd9a8; text-decoration: none; }
 a:hover { text-decoration: underline; }
 code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
-code { background: rgba(255, 255, 255, 0.08); padding: 1px 5px; border-radius: 3px; font-size: 0.92em; }
-pre { background: #152215; padding: 14px 18px; border-radius: 6px; overflow: auto; border: 1px solid #253625; }
-pre code { background: none; padding: 0; }
-table { border-collapse: collapse; margin: 12px 0; }
+code { background: rgba(255, 255, 255, 0.08); padding: 1px 5px; border-radius: 3px; font-size: 0.92em; word-break: break-word; }
+pre { background: #152215; padding: 14px 18px; border-radius: 6px; overflow: auto; border: 1px solid #253625; -webkit-overflow-scrolling: touch; }
+pre code { background: none; padding: 0; word-break: normal; }
+table { border-collapse: collapse; margin: 12px 0; width: 100%; display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
 th, td { border: 1px solid #2a3b2a; padding: 6px 10px; text-align: left; }
 th { background: #18251a; }
 blockquote { border-left: 3px solid #3b6b3b; margin: 0; padding: 2px 16px; color: #c9d1ba; background: #132013; }
 h1, h2, h3, h4 { color: #f1f5e8; }
-h1 { font-size: 28px; margin-top: 0; }
+h1 { font-size: 28px; margin-top: 0; line-height: 1.2; }
 h2 { margin-top: 36px; border-bottom: 1px solid #253625; padding-bottom: 6px; }
+img { max-width: 100%; height: auto; }
+
+/* Hidden checkbox that drives the mobile sidebar drawer via CSS only. */
+.nav-toggle { display: none; }
+
+/* Mobile top bar - visible only on small screens. */
+.topbar {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: #101c10;
+  border-bottom: 1px solid #1f2d1f;
+  position: sticky; top: 0; z-index: 20;
+}
+.topbar .brand { display: flex; align-items: center; gap: 8px; font-weight: 600; color: #f1f5e8; }
+.topbar .brand .mark { font-size: 20px; }
+.nav-toggle-label {
+  display: none;
+  cursor: pointer;
+  font-size: 22px;
+  line-height: 1;
+  color: #cfe0bf;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid #253625;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.nav-toggle-label:hover { background: #17241a; }
 
 .layout { display: grid; grid-template-columns: 260px 1fr; min-height: 100vh; }
 aside.nav {
@@ -87,13 +119,14 @@ aside.nav .brand strong { font-size: 16px; color: #f1f5e8; }
 aside.nav h4 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: #7fa380; margin: 18px 0 6px; }
 aside.nav ul { list-style: none; padding: 0; margin: 0; }
 aside.nav li { margin: 2px 0; }
-aside.nav a { display: block; padding: 6px 10px; border-radius: 5px; color: #cfe0bf; }
+aside.nav a { display: block; padding: 8px 10px; border-radius: 5px; color: #cfe0bf; }
 aside.nav a:hover { background: #17241a; text-decoration: none; }
 aside.nav a.active { background: #22372a; color: #eaf5dd; }
 aside.nav .ext::after { content: " \u2197"; opacity: 0.6; }
 
-main.content { padding: 40px 56px; max-width: 920px; }
-main.content img { max-width: 100%; }
+.nav-backdrop { display: none; }
+
+main.content { padding: 40px 56px; max-width: 920px; min-width: 0; }
 
 .hero {
   background: linear-gradient(135deg, #18301f 0%, #0e1a0e 100%);
@@ -117,10 +150,45 @@ main.content img { max-width: 100%; }
 .card .title { font-weight: 600; color: #f1f5e8; margin-bottom: 4px; }
 .card .desc { font-size: 13px; color: #a7bca1; }
 
+/* Tablet: narrow but still two columns, slightly tighter padding. */
+@media (max-width: 1024px) {
+  main.content { padding: 32px 36px; }
+  .hero { padding: 28px 28px; }
+}
+
+/* Mobile: stack layout, turn the sidebar into a slide-in drawer. */
 @media (max-width: 760px) {
   .layout { grid-template-columns: 1fr; }
-  aside.nav { position: static; max-height: none; }
-  main.content { padding: 24px; }
+  .topbar { display: flex; }
+  .nav-toggle-label { display: inline-flex; align-items: center; }
+
+  aside.nav {
+    position: fixed;
+    top: 0; left: 0;
+    width: 80vw; max-width: 320px; height: 100vh;
+    max-height: none;
+    transform: translateX(-102%);
+    transition: transform 200ms ease;
+    z-index: 40;
+    border-right: 1px solid #1f2d1f;
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
+  }
+  .nav-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    z-index: 30;
+  }
+  .nav-toggle:checked ~ aside.nav { transform: translateX(0); }
+  .nav-toggle:checked ~ .nav-backdrop { display: block; }
+
+  main.content { padding: 20px 16px; max-width: 100%; }
+  .hero { padding: 22px 20px; border-radius: 8px; }
+  .hero h1 { font-size: 24px; }
+  .hero .tagline { font-size: 15px; }
+  h2 { margin-top: 28px; }
+  pre { padding: 12px 14px; font-size: 13px; }
 }
 `;
 
@@ -169,12 +237,19 @@ function page({ title, slug, body, root }) {
 <head>
 <meta charset="utf-8" />
 <title>${title} \u00b7 claude-village</title>
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="color-scheme" content="dark" />
 <link rel="stylesheet" href="${root}assets/style.css" />
 </head>
 <body>
+<input type="checkbox" id="nav-toggle" class="nav-toggle" aria-hidden="true" />
+<header class="topbar">
+  <div class="brand"><span class="mark">\u{1F9F1}</span> claude-village</div>
+  <label for="nav-toggle" class="nav-toggle-label" aria-label="Open navigation">\u2630</label>
+</header>
 <div class="layout">
 ${sidebar(slug, root)}
+  <label for="nav-toggle" class="nav-backdrop" aria-hidden="true"></label>
   <main class="content">
 ${body}
   </main>
