@@ -1,6 +1,11 @@
 import type { AgentEvent } from "../shared/types";
 import { logger } from "./logger";
 
+// Dedupe unknown payload-type warnings so a repeated benign event type
+// (e.g. `attachment`, `custom-title`) does not flood the log. Each distinct
+// type is warned once at INFO level, then silenced.
+const warnedTypes = new Set<string>();
+
 /**
  * Normalizes a single parsed Claude Code JSONL line into an AgentEvent.
  * Shared with the hook server so both ingress paths produce identical event shapes.
@@ -72,11 +77,12 @@ export function normalizeJsonlEvent(raw: any, rawLine: string): AgentEvent | nul
     };
   }
 
-  // Unknown / unhandled payload type. Log sparingly - only the type, not the
-  // full line, to avoid spamming with every unsupported event kind.
-  if (typeof raw.type === "string") {
-    logger.warn("normalizeJsonlEvent unknown payload type", {
-      sessionId,
+  // Unknown / unhandled payload type. Benign - Claude Code emits many event
+  // kinds we do not visualise. Log each distinct type exactly once at INFO so
+  // we can see the vocabulary without flooding the file on busy sessions.
+  if (typeof raw.type === "string" && !warnedTypes.has(raw.type)) {
+    warnedTypes.add(raw.type);
+    logger.info("normalizeJsonlEvent skipping unhandled payload type (logged once)", {
       payloadType: raw.type
     });
   }
