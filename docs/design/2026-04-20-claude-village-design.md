@@ -257,7 +257,7 @@ Tab badges show: agent count, whether the timeline has new unseen lines, and ses
 | Malformed JSONL line | Log, skip line, keep tailing. Never crash. |
 | `~/.claude/projects/` missing | Onboarding screen: "No Claude sessions found." Re-scan every 5s. |
 | File rotates or rewritten from zero | Detect offset > size -> reset to top, dedupe by event id hash. |
-| Hook socket busy | Fall back to next port; surface a clear banner in Settings. |
+| Hook port 49251 busy | Show a clear error dialog and quit. The port is pinned so the `~/.claude/settings.json` snippet never has to change; a second running instance is almost always the cause. Tests can override via the `CV_HOOK_PORT` env var (set to `0` for a random port). |
 | Custom `~/.claude` path | Read `CLAUDE_CONFIG_DIR` env on boot; Settings lets user override the watch path. |
 | Runaway parallelism (200+ agents in one session) | Hard cap 50 rendered characters per scene; overflow tallied in Tavern. Timeline still lists all. |
 | Quit while hook server running | Electron `before-quit` cleans up socket + SQLite. Stale socket on next boot is unlinked on startup. |

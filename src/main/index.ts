@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu } from "electron";
+import { app, BrowserWindow, Menu, dialog } from "electron";
 import path from "node:path";
 import os from "node:os";
 import { SessionWatcher } from "./session-watcher";
@@ -108,15 +108,30 @@ app.whenReady().then(async () => {
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
   await watcher.start();
   try {
-    await hookServer.start(49251);
+    // Hook server is pinned to port 49251 so the `~/.claude/settings.json`
+    // snippet never needs to change. If the port is busy it is almost always
+    // a second copy of claude-village already running, so surface a clear
+    // dialog and quit rather than silently running in a degraded mode or
+    // picking a different port that would break the hook config.
+    //
+    // Tests override via `CV_HOOK_PORT=0` to bind a random port so e2e runs
+    // don't collide with a developer's live app.
+    const hookPort = process.env.CV_HOOK_PORT
+      ? Number(process.env.CV_HOOK_PORT)
+      : 49251;
+    await hookServer.start(hookPort);
   } catch (err) {
-    // The hook server is a secondary ingress path - JSONL tailing still works
-    // if the preferred port is busy (e.g. a second instance, or an e2e run
-    // alongside the dev app). Log and continue so the window still opens.
     const e = err instanceof Error ? err : new Error(String(err));
-    logger.warn("HookServer failed to bind; continuing without hook ingress", {
+    logger.error("HookServer failed to bind on port 49251; quitting", {
       message: e.message
     });
+    dialog.showErrorBox(
+      "claude-village: port 49251 in use",
+      "Another process is already listening on 127.0.0.1:49251. This is almost always another claude-village instance - quit it and relaunch.\n\nTechnical detail: " +
+        e.message
+    );
+    app.exit(1);
+    return;
   }
   await createWindow();
 });

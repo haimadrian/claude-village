@@ -108,6 +108,16 @@ Playwright always writes reports under `playwright-report/`:
 
 On failure Playwright also retains traces and videos under `test-results/`.
 
+### Running e2e alongside a live app
+
+The hook server binds to a fixed port (`127.0.0.1:49251`) so the
+`~/.claude/settings.json` snippet never has to change and a second running copy
+of claude-village hard-fails on launch instead of silently drifting to a random
+port. Tests bypass that by setting `CV_HOOK_PORT=0` in the spawn env, which
+picks a random free port for the test-run only. The e2e spec already does this;
+if you add new specs that launch Electron, make sure to set `CV_HOOK_PORT: "0"`
+in the `env` passed to `electron.launch`.
+
 ## Build and package
 
 ```bash
