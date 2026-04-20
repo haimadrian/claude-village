@@ -4,9 +4,14 @@ A Mac desktop app that visualizes running Claude Code sessions as an animated Mi
 
 Each session is a tab. Each agent is a voxel character walking between themed zones based on what tool it is using right now - reading files in the library, writing code in the office, searching in the mine, running tests on the farm, committing in the nether portal, and so on.
 
-## Status
+## Documentation
 
-Design phase. See [`docs/design/2026-04-20-claude-village-design.md`](docs/design/2026-04-20-claude-village-design.md) for the full spec.
+- [Install](docs/install.md) - download, install, troubleshoot
+- [Usage](docs/usage.md) - what the app does and how to drive it
+- [Development](docs/development.md) - stack, clone, dev loop, build, package
+- [Design](docs/design/2026-04-20-claude-village-design.md) - full spec
+- [Implementation plan](docs/plans/2026-04-20-claude-village-plan.md) - task breakdown
+- [Progress](docs/progress.md) - live status of all 17 tasks
 
 ## Credits
 
