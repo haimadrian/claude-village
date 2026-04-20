@@ -9,6 +9,7 @@ release/
 coverage/
 test-results/
 playwright-report/
+reports/
 .vite/
 .turbo/
 .superpowers/

@@ -79,15 +79,18 @@ export function Character({ agent, zonePositions, walkable, gridSize }: Characte
         <boxGeometry args={[0.5, 0.5, 0.5]} />
         <meshStandardMaterial color="#f3c89a" transparent={translucent} opacity={opacity} />
       </mesh>
-      <Html position={[0, 2.2, 0]} center distanceFactor={10}>
+      <Html position={[0, 2.2, 0]} center>
         <div
           style={{
-            fontSize: 10,
-            background: "rgba(0,0,0,0.6)",
+            fontSize: 14,
+            fontWeight: 600,
+            background: "rgba(0,0,0,0.75)",
             color: "#fff",
-            padding: "2px 6px",
-            borderRadius: 4,
-            whiteSpace: "nowrap"
+            padding: "3px 8px",
+            borderRadius: 6,
+            whiteSpace: "nowrap",
+            pointerEvents: "none",
+            textShadow: "0 1px 2px rgba(0,0,0,0.5)"
           }}
         >
           {labelPrefix}
@@ -95,7 +98,7 @@ export function Character({ agent, zonePositions, walkable, gridSize }: Characte
         </div>
       </Html>
       {lastAction && (
-        <Html position={[0, 2.8, 0]} center distanceFactor={12}>
+        <Html position={[0, 2.8, 0]} center>
           <div
             onClick={(e) => {
               e.stopPropagation();
@@ -105,15 +108,16 @@ export function Character({ agent, zonePositions, walkable, gridSize }: Characte
             }}
             style={{
               cursor: "pointer",
-              fontSize: 10,
-              background: "rgba(255,255,255,0.9)",
+              fontSize: 13,
+              background: "rgba(255,255,255,0.95)",
               color: "#111",
-              padding: "2px 6px",
-              borderRadius: 8,
-              maxWidth: 220,
+              padding: "3px 8px",
+              borderRadius: 10,
+              maxWidth: 260,
               whiteSpace: "nowrap",
               overflow: "hidden",
-              textOverflow: "ellipsis"
+              textOverflow: "ellipsis",
+              boxShadow: "0 2px 4px rgba(0,0,0,0.25)"
             }}
           >
             {truncate(lastAction.summary, 60)}

@@ -1,8 +1,13 @@
 name: Unit tests
 on: [push, pull_request]
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+
 jobs:
   lint-typecheck-unit:
-    name: Lint, typecheck, and unit tests
+    name: Lint, typecheck, unit tests + coverage
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -13,4 +18,36 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
       - run: pnpm lint
-      - run: pnpm test
+      - name: Run unit tests with coverage
+        run: pnpm test
+        env:
+          CI: "true"
+      - name: Publish unit test results
+        if: always()
+        uses: dorny/test-reporter@v2
+        with:
+          name: Unit tests
+          path: reports/unit-junit.xml
+          reporter: jest-junit
+          fail-on-error: false
+      - name: Upload unit HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-report
+          path: reports/unit-html
+          retention-days: 14
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: reports/coverage
+          retention-days: 14
+      - name: Publish coverage summary
+        if: always()
+        run: |
+          if [ -f reports/coverage/coverage-summary.json ]; then
+            echo "## Coverage" >> "$GITHUB_STEP_SUMMARY"
+            node -e "const c=require('./reports/coverage/coverage-summary.json').total; for (const k of Object.keys(c)) console.log(\`| \${k} | \${c[k].pct}% |\`);" >> "$GITHUB_STEP_SUMMARY"
+          fi

@@ -14,7 +14,20 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     include: ["tests/unit/**/*.{test,spec}.ts"],
-    exclude: ["tests/e2e/**", "node_modules/**", "out/**", "tests/unit/stubs/**"]
+    exclude: ["tests/e2e/**", "node_modules/**", "out/**", "tests/unit/stubs/**"],
+    reporters: process.env.CI ? ["default", "junit", "html"] : ["default"],
+    outputFile: {
+      junit: "reports/unit-junit.xml",
+      html: "reports/unit-html/index.html"
+    },
+    coverage: {
+      enabled: !!process.env.CI,
+      provider: "v8",
+      reporter: ["text", "html", "lcov", "json-summary"],
+      reportsDirectory: "reports/coverage",
+      include: ["src/main/**/*.ts", "src/renderer/**/*.{ts,tsx}", "src/shared/**/*.ts"],
+      exclude: ["**/*.d.ts", "src/renderer/main.tsx", "src/renderer/logger.ts", "src/main/logger.ts"]
+    }
   },
   resolve: {
     alias: {

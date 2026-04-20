@@ -6,6 +6,20 @@ import { BubbleDrawer } from "./village/BubbleDrawer";
 import { SettingsScreen } from "./settings/SettingsScreen";
 import { AboutModal } from "./settings/AboutModal";
 
+const ACTIVE_MS = 60_000;
+const IDLE_MS = 10 * 60_000;
+
+function deriveStatus(s: {
+  status: "active" | "idle" | "ended";
+  lastActivityAt: number;
+}): "active" | "idle" | "ended" {
+  if (s.status === "ended") return "ended";
+  const age = Date.now() - s.lastActivityAt;
+  if (age < ACTIVE_MS) return "active";
+  if (age < IDLE_MS) return "idle";
+  return "ended";
+}
+
 export default function App(): JSX.Element {
   return (
     <SessionProvider>
@@ -50,16 +64,26 @@ function Shell(): JSX.Element {
       >
         <h3 style={{ margin: 0, fontSize: 14 }}>Sessions</h3>
         <ul style={{ listStyle: "none", padding: 0, marginTop: 8 }}>
-          {Array.from(sessions.values()).map((s) => (
-            <li key={s.sessionId} style={{ marginBottom: 4 }}>
-              <button
-                onClick={() => openTab(s.sessionId)}
-                style={{ all: "unset", cursor: "pointer", fontSize: 12 }}
-              >
-                {s.sessionId.slice(0, 8)} ({s.status})
-              </button>
-            </li>
-          ))}
+          {Array.from(sessions.values())
+            .sort((a, b) => b.lastActivityAt - a.lastActivityAt)
+            .map((s) => {
+              const live = deriveStatus(s);
+              return (
+                <li key={s.sessionId} style={{ marginBottom: 4 }}>
+                  <button
+                    onClick={() => openTab(s.sessionId)}
+                    style={{
+                      all: "unset",
+                      cursor: "pointer",
+                      fontSize: 12,
+                      opacity: live === "active" ? 1 : live === "idle" ? 0.7 : 0.45
+                    }}
+                  >
+                    {s.sessionId.slice(0, 8)} ({live})
+                  </button>
+                </li>
+              );
+            })}
         </ul>
       </aside>
       <main
