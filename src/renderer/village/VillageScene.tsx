@@ -11,6 +11,7 @@ type OrbitControlsImpl = any;
 import { ZONES } from "../../shared/zones";
 import { Zone } from "./Zone";
 import { Character } from "./Character";
+import { TooltipLayer } from "./TooltipLayer";
 import { useSessions } from "../context/SessionContext";
 
 const RADIUS = 8;
@@ -75,6 +76,7 @@ export function VillageScene({ sessionId }: VillageSceneProps) {
             gridSize={grid.size}
           />
         ))}
+      <TooltipLayer {...(sessionId !== undefined ? { sessionId } : {})} />
     </Canvas>
   );
 }
