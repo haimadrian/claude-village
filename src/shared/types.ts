@@ -2,19 +2,10 @@ import type { ZoneId } from "./zones";
 
 export type AgentKind = "main" | "subagent";
 
-export type AnimationState =
-  | "idle"
-  | "walk"
-  | "work-office"
-  | "work-library"
-  | "work-mine"
-  | "work-forest"
-  | "work-farm"
-  | "work-nether"
-  | "work-signpost"
-  | "work-spawner"
-  | "work-tavern"
-  | "ghost";
+// Derived so adding a zone in `zones.ts` automatically yields the matching
+// `work-<zone>` animation. Prevents typos from slipping past a stringly-typed cast.
+export type WorkAnimation = `work-${ZoneId}`;
+export type AnimationState = "idle" | "walk" | WorkAnimation | "ghost";
 
 export interface AgentEvent {
   sessionId: string;
@@ -41,7 +32,7 @@ export interface AgentEvent {
 export interface AgentAction {
   timestamp: number;
   zone: ZoneId;
-  summary: string;
+  summary: string; // ready-to-render label (pre-truncated upstream)
 }
 
 export interface AgentState {
@@ -62,17 +53,17 @@ export interface SessionState {
   startedAt: number;
   lastActivityAt: number;
   status: "active" | "idle" | "ended";
-  agents: Map<string, AgentState>;
+  agents: Map<string, AgentState>; // main-process only; serialized to AgentState[] across IPC
   timeline: TimelineLine[]; // ring buffer, max 500
 }
 
 export interface TimelineLine {
-  id: string;
+  id: string; // event hash, stable across re-renders
   timestamp: number;
   agentId: string;
   agentKind: AgentKind;
   kind: "user" | "assistant" | "tool-call" | "tool-result";
-  text: string;
+  text: string; // condensed, already truncated for display
 }
 
 export interface Classification {
