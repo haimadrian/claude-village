@@ -46,8 +46,4 @@ jobs:
           retention-days: 14
       - name: Publish coverage summary
         if: always()
-        run: |
-          if [ -f reports/coverage/coverage-summary.json ]; then
-            echo "## Coverage" >> "$GITHUB_STEP_SUMMARY"
-            node -e "const c=require('./reports/coverage/coverage-summary.json').total; for (const k of Object.keys(c)) console.log(\`| \${k} | \${c[k].pct}% |\`);" >> "$GITHUB_STEP_SUMMARY"
-          fi
+        run: node scripts/ci-coverage-summary.mjs >> "$GITHUB_STEP_SUMMARY"

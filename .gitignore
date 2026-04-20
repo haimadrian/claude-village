@@ -10,6 +10,7 @@ coverage/
 test-results/
 playwright-report/
 reports/
+_pages/
 .vite/
 .turbo/
 .superpowers/

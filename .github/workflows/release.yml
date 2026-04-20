@@ -1,0 +1,60 @@
+name: Release (.dmg)
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to publish (e.g. v0.1.1). Created and pushed if missing."
+        required: true
+        default: "v0.1.0-dev"
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build .dmg and attach to GitHub Release
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 9 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+
+      - name: Determine tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "name=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "name=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build app
+        run: pnpm build
+
+      - name: Package .dmg
+        run: pnpm package
+
+      - name: Locate DMG
+        id: dmg
+        run: |
+          dmg=$(ls -1 release/*.dmg | head -1)
+          echo "path=$dmg" >> "$GITHUB_OUTPUT"
+          echo "name=$(basename "$dmg")" >> "$GITHUB_OUTPUT"
+
+      - name: Create or update GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.name }}
+          name: ${{ steps.tag.outputs.name }}
+          generate_release_notes: true
+          draft: false
+          prerelease: ${{ contains(steps.tag.outputs.name, '-') }}
+          files: |
+            ${{ steps.dmg.outputs.path }}
+            release/*.dmg.blockmap
+            release/latest-mac.yml

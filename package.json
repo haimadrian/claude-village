@@ -15,7 +15,8 @@
     "typecheck": "tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.web.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "serve:reports": "npx http-server -p 4173 -o reports/unit-html"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
@@ -48,6 +49,7 @@
     "eslint": "^9.12.0",
     "eslint-plugin-react": "^7.37.0",
     "eslint-plugin-react-hooks": "^4.6.2",
+    "marked": "^18.0.2",
     "prettier": "^3.3.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
