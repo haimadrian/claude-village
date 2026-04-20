@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from "electron";
+import { app, BrowserWindow, Menu } from "electron";
 import path from "node:path";
 import os from "node:os";
 import { SessionWatcher } from "./session-watcher";
@@ -50,6 +50,23 @@ async function createWindow(): Promise<void> {
 }
 
 app.whenReady().then(async () => {
+  const template: Electron.MenuItemConstructorOptions[] = [
+    {
+      label: "claude-village",
+      submenu: [
+        {
+          label: "About claude-village...",
+          click: () => {
+            const win = BrowserWindow.getFocusedWindow();
+            win?.webContents.send("menu:about");
+          }
+        },
+        { type: "separator" },
+        { role: "quit" }
+      ]
+    }
+  ];
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
   await watcher.start();
   await hookServer.start(49251);
   await createWindow();

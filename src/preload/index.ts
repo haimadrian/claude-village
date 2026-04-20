@@ -9,5 +9,10 @@ contextBridge.exposeInMainWorld("claudeVillage", {
     const listener = (_e: unknown, p: unknown): void => cb(p);
     ipcRenderer.on("session:patch", listener);
     return () => ipcRenderer.off("session:patch", listener);
+  },
+  onMenuAbout: (cb: () => void): (() => void) => {
+    const l = (): void => cb();
+    ipcRenderer.on("menu:about", l);
+    return () => ipcRenderer.off("menu:about", l);
   }
 });

@@ -27,6 +27,7 @@ export interface ClaudeVillageAPI {
   pinSession: (id: string) => Promise<void>;
   unpinSession: (id: string) => Promise<void>;
   onPatch: (cb: (p: SessionPatch) => void) => () => void;
+  onMenuAbout: (cb: () => void) => () => void;
 }
 
 declare global {

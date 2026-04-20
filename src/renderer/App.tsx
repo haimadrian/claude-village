@@ -1,5 +1,9 @@
+import { useCallback, useEffect, useState } from "react";
 import { SessionProvider, useSessions } from "./context/SessionContext";
 import { VillageScene } from "./village/VillageScene";
+import { TimelineStrip } from "./village/TimelineStrip";
+import { SettingsScreen } from "./settings/SettingsScreen";
+import { AboutModal } from "./settings/AboutModal";
 
 export default function App(): JSX.Element {
   return (
@@ -12,6 +16,17 @@ export default function App(): JSX.Element {
 function Shell(): JSX.Element {
   const { sessions, openTabIds, activeTabId, setActiveTab, closeTab, togglePin, openTab } =
     useSessions();
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
+
+  // Preload may not fully populate during dev; guard for existence so the
+  // renderer does not crash before the bridge is ready.
+  useEffect(() => {
+    const unsubscribe = window.claudeVillage?.onMenuAbout?.(() => setAboutOpen(true));
+    return () => {
+      unsubscribe?.();
+    };
+  }, []);
 
   return (
     <div
@@ -94,6 +109,27 @@ function Shell(): JSX.Element {
           {activeTabId ? <TabBody sessionId={activeTabId} /> : <div>No active session</div>}
         </section>
       </main>
+      <button
+        onClick={() => setSettingsOpen(true)}
+        title="Settings"
+        aria-label="Open settings"
+        style={{
+          position: "fixed",
+          top: 8,
+          right: 8,
+          zIndex: 100,
+          background: "#1f2a1f",
+          color: "#eee",
+          border: "1px solid #2a3",
+          borderRadius: 4,
+          padding: "4px 8px",
+          cursor: "pointer"
+        }}
+      >
+        ⚙
+      </button>
+      {settingsOpen && <SettingsScreen onClose={() => setSettingsOpen(false)} />}
+      {aboutOpen && <AboutModal onClose={() => setAboutOpen(false)} />}
     </div>
   );
 }
@@ -101,10 +137,15 @@ function Shell(): JSX.Element {
 function TabBody({ sessionId }: { sessionId: string }): JSX.Element {
   const { sessions } = useSessions();
   const s = sessions.get(sessionId);
+  const onFocusAgent = useCallback(
+    (id: string) =>
+      window.dispatchEvent(new CustomEvent("village:focus-agent", { detail: { agentId: id } })),
+    []
+  );
   if (!s) return <div>Loading...</div>;
   return (
     <div style={{ position: "relative", width: "100%", height: "100%" }}>
-      <VillageScene />
+      <VillageScene sessionId={sessionId} />
       <div
         style={{
           position: "absolute",
@@ -120,6 +161,7 @@ function TabBody({ sessionId }: { sessionId: string }): JSX.Element {
         <div>Agents: {s.agents.size}</div>
         <div>Status: {s.status}</div>
       </div>
+      <TimelineStrip timeline={s.timeline} agents={s.agents} onFocusAgent={onFocusAgent} />
     </div>
   );
 }
