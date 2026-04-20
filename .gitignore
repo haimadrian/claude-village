@@ -1,0 +1,12 @@
+node_modules/
+dist/
+out/
+release/
+.DS_Store
+*.log
+.env
+.env.local
+coverage/
+.vite/
+.turbo/
+.superpowers/
