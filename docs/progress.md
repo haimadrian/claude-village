@@ -35,7 +35,7 @@
 | 11 | `Character` component (depends on 9 + 10) | `[x]` | agent-11-orchestrator | 0c76cfd |
 | 12 | `TooltipLayer` (depends on 9 + 11) | `[x]` | agent-12-orchestrator | cd59f9c |
 | 13 | `TimelineStrip` with click-to-focus (depends on 8) | `[x]` | agent-13-orchestrator | b986313 |
-| 14 | Conversation animations + bubble drawer (depends on 11 + 12) | `[ ]` | - | - |
+| 14 | Conversation animations + bubble drawer (depends on 11 + 12) | `[x]` | agent-14-orchestrator | 44717ae |
 | 15 | `SettingsScreen` + About modal (depends on 8) | `[x]` | agent-15-orchestrator | 78bced5 |
 
 ## Integration and ship

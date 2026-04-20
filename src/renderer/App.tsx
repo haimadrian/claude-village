@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { SessionProvider, useSessions } from "./context/SessionContext";
 import { VillageScene } from "./village/VillageScene";
 import { TimelineStrip } from "./village/TimelineStrip";
+import { BubbleDrawer } from "./village/BubbleDrawer";
 import { SettingsScreen } from "./settings/SettingsScreen";
 import { AboutModal } from "./settings/AboutModal";
 
@@ -162,6 +163,7 @@ function TabBody({ sessionId }: { sessionId: string }): JSX.Element {
         <div>Status: {s.status}</div>
       </div>
       <TimelineStrip timeline={s.timeline} agents={s.agents} onFocusAgent={onFocusAgent} />
+      <BubbleDrawer agents={s.agents} />
     </div>
   );
 }
