@@ -42,8 +42,8 @@
 
 | # | Task | Status | Owner | Commit / Notes |
 |---|------|--------|-------|----------------|
-| 16 | End-to-end integration test (Playwright over Electron) | `[ ]` | - | - |
-| 17 | Packaging (`electron-builder`, .dmg, install doc) | `[ ]` | - | - |
+| 16 | End-to-end integration test (Playwright over Electron) | `[x]` | agent-16-orchestrator | 41ffcd3 |
+| 17 | Packaging (`electron-builder`, .dmg, install doc) | `[x]` | agent-17-orchestrator | c76818f |
 
 ## Milestones
 
