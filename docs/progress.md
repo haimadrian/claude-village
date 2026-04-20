@@ -13,7 +13,7 @@
 | # | Task | Status | Owner | Commit / Notes |
 |---|------|--------|-------|----------------|
 | 1 | Repo scaffold (Electron + Vite + React + TS + Vitest + Playwright + ESLint/Prettier + CI) | `[x]` | agent-scaffold | 9692804 |
-| 2 | Shared types (`AgentEvent`, `AgentState`, `SessionState`, `ZoneId`, ...) | `[~]` | agent-shared-types (2026-04-20 21:56) | - |
+| 2 | Shared types (`AgentEvent`, `AgentState`, `SessionState`, `ZoneId`, ...) | `[x]` | agent-shared-types | fe9dd4e |
 
 ## Main-process parallel block (each depends only on Task 2)
 
