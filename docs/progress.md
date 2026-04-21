@@ -118,6 +118,17 @@ Three additional parallel waves after the first batch, also merged as clean squa
 
 Final post-merge test count: **101 unit** + **3 e2e**. Main log is still linear: 9 squash commits + 1 docs commit since `b7f9edd`.
 
+### 2026-04-21 wave 4: scene depth, legs, signpost, quit-on-close
+
+Four more parallel worktrees, all merged to main as independent squash commits:
+
+- **Quit on window close** (`b0077b0` - was `fix/quit-on-window-close`). Dropped the `process.platform !== "darwin"` guard from the `window-all-closed` handler so `app.quit()` fires everywhere. The existing `before-quit` handler tears down the SessionWatcher and HookServer so shutdown is clean. Electron's stock macOS pattern keeps the app alive after the last window closes; claude-village has no useful headless-alive behaviour so this matches the user's expectation.
+- **Character legs** (`10d42aa` - was `feat/character-legs`). Shortened the Tier 1 torso from 1.6 to 0.8 tall and added two 0.25 x 1.0 x 0.3 leg boxes below so the foot bottom lands on the grass at neutral bob. Legs render on both Tier 1 FallbackCharacter and Tier 2 CharacterMesh via a shared overlay, keeping ghost-opacity plumbing identical. New `trousersColor(id)` helper (5-colour djb2-hashed palette) mirrors `hairColor`.
+- **Signpost text + zone/signpost tooltips** (`b58d81a` - was `fix/signpost-text-and-tooltips`). Plank swapped to a lighter pine tone; zone-name rendered at 0.28 fontSize in near-black with a white outline, and duplicated on the back plank face so it is readable from every camera angle. Explicit `userData.tooltipKind` stamped on every signpost sub-mesh (post, plank, text) plus an invisible generous hitbox, and the cloned GLB scene is traversed so every descendant carries `zone-ground` userData. Hover now reliably resolves the zone tooltip regardless of which part of the building, signpost, or icon the raycast hits.
+- **Scene depth: waves + minor islands + boats + free camera + seabed** (`f1324c1` - was `feat/scene-depth-waves-boats`). Animated PlaneGeometry water with summed sinusoids and recomputed normals; opaque deep-blue seabed plane at y=-1.6. Main island is now a 3-unit cylinder with earthy sides so it reads as a raised landmass from below. 8 deterministic minor islands (seeded mulberry32, dirt+grass cap + 1-3 cone-on-trunk trees) scattered in the annulus outside the main island. 4 boats on distinct orbits with `lookAt` tangent orientation, bob, pitch, and roll, all driven by one shared `useFrame`. OrbitControls gets `screenSpacePanning`, `minDistance=4`, `maxDistance=80`, `maxPolarAngle=0.55pi`, plus invisible zone click pads that dispatch `village:focus-zone` and a `CameraTargetLerper` that glides the orbit target to any focused zone or agent.
+
+Post-wave-4 totals: **118 unit** + **3 e2e**, lint / typecheck / build all green. Linear log, 15 squash + docs commits since `b7f9edd`.
+
 ## How to update this file
 
 When an agent starts a task:
