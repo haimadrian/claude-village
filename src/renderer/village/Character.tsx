@@ -7,6 +7,7 @@ import { computePath, type GridPoint } from "./pathfinding";
 import { computeSeparation } from "./separation";
 import { characterModel } from "./assetMap";
 import { GltfErrorBoundary } from "./GltfErrorBoundary";
+import { hairColor } from "./appearance";
 import type { AgentState } from "../../shared/types";
 
 interface CharacterProps {
@@ -137,8 +138,14 @@ export function Character({
   const labelPrefix = agent.kind === "main" ? "🛡 " : "";
   const lastAction = agent.recentActions[agent.recentActions.length - 1];
 
+  const hair = hairColor(agent.id);
   const fallback = (
-    <FallbackCharacter skinColor={agent.skinColor} translucent={translucent} opacity={opacity} />
+    <FallbackCharacter
+      skinColor={agent.skinColor}
+      hairColor={hair}
+      translucent={translucent}
+      opacity={opacity}
+    />
   );
 
   return (
@@ -152,6 +159,7 @@ export function Character({
           <CharacterMesh
             kind={agent.kind}
             skinColor={agent.skinColor}
+            hairColor={hair}
             translucent={translucent}
             opacity={opacity}
           />
@@ -217,11 +225,13 @@ export function Character({
 function CharacterMesh({
   kind,
   skinColor,
+  hairColor,
   translucent,
   opacity
 }: {
   kind: "main" | "subagent";
   skinColor: string;
+  hairColor: string;
   translucent: boolean;
   opacity: number;
 }) {
@@ -246,19 +256,47 @@ function CharacterMesh({
     });
     return root;
   }, [gltf, skinColor, translucent, opacity]);
-  return <primitive object={cloned} />;
+  // The placeholder GLB models the character as body + head (head at y=1.25,
+  // size 0.5, body centred at y=0.5, size 0.6 x 1.0 x 0.4). Layer the face,
+  // hair, and arms as separate meshes on top of the loaded scene so the GLB
+  // generator can stay minimal and a future Kenney GLB swap (which already
+  // carries its own face/hair/arms) needs no code change here.
+  return (
+    <>
+      <primitive object={cloned} />
+      <CharacterDecorations
+        headY={1.25}
+        headSize={0.5}
+        bodyY={0.5}
+        bodyHeight={1.0}
+        bodyWidth={0.6}
+        skinColor={skinColor}
+        hairColor={hairColor}
+        translucent={translucent}
+        opacity={opacity}
+      />
+    </>
+  );
 }
 
 /**
- * Tier 1 two-box character. Used as Suspense fallback and as the hard
- * error fallback when a GLB cannot be loaded.
+ * Tier 1 two-box character plus Minecraft-style face, hair, and arms. Used as
+ * Suspense fallback and as the hard error fallback when a GLB cannot be
+ * loaded.
+ *
+ * Geometry summary (all local to the parent group):
+ *   body:  0.6 x 1.6 x 0.4   centred at y=0, so top = 0.8, front = z+0.2
+ *   head:  0.5 x 0.5 x 0.5   centred at y=1.2, so top = 1.45, front = z+0.25
+ *   arms:  0.18 x 1.0 x 0.18 hanging from the shoulders
  */
 function FallbackCharacter({
   skinColor,
+  hairColor,
   translucent,
   opacity
 }: {
   skinColor: string;
+  hairColor: string;
   translucent: boolean;
   opacity: number;
 }) {
@@ -271,6 +309,113 @@ function FallbackCharacter({
       <mesh position={[0, 1.2, 0]}>
         <boxGeometry args={[0.5, 0.5, 0.5]} />
         <meshStandardMaterial color="#f3c89a" transparent={translucent} opacity={opacity} />
+      </mesh>
+      <CharacterDecorations
+        headY={1.2}
+        headSize={0.5}
+        bodyY={0}
+        bodyHeight={1.6}
+        bodyWidth={0.6}
+        skinColor={skinColor}
+        hairColor={hairColor}
+        translucent={translucent}
+        opacity={opacity}
+      />
+    </>
+  );
+}
+
+/**
+ * Minecraft-style face (two eyes + mouth), hair slab with fringe, and two
+ * rigid arms. Shared between `FallbackCharacter` (Tier 1 boxes) and
+ * `CharacterMesh` (Tier 2 placeholder GLB) because the two models use the
+ * same proportions. Measurements are passed in so each caller can anchor
+ * the decorations to its own head / body geometry.
+ *
+ * The parent `<group>` handles `lookAt` so +Z is always "forward" relative
+ * to the character's walk direction; placing eyes / mouth / fringe on the
+ * +Z side of the head keeps them pointing where the character is looking.
+ */
+function CharacterDecorations({
+  headY,
+  headSize,
+  bodyY,
+  bodyHeight,
+  bodyWidth,
+  skinColor,
+  hairColor,
+  translucent,
+  opacity
+}: {
+  headY: number;
+  headSize: number;
+  bodyY: number;
+  bodyHeight: number;
+  bodyWidth: number;
+  skinColor: string;
+  hairColor: string;
+  translucent: boolean;
+  opacity: number;
+}) {
+  const headHalf = headSize / 2;
+  // Nudge face elements slightly off the head's front face so the z-buffer
+  // never ties. 0.002 is invisible at any realistic camera distance but big
+  // enough to beat floating-point rounding during projection.
+  const faceZ = headHalf + 0.002;
+  const eyeY = headY + 0.05; // just above the vertical centre of the head
+  const eyeDx = 0.11; // horizontal half-separation
+  const mouthY = headY - 0.12;
+  // Hair slab sits on top of the head, slightly wider + deeper so it reads
+  // as a hat of hair from every angle.
+  const hairSlabY = headY + headHalf + 0.04;
+  // Fringe is a thin strip on the upper front of the head, giving the
+  // character a visible Minecraft-style bang line from the front.
+  const fringeY = headY + headHalf - 0.12;
+  const fringeZ = headHalf + 0.01;
+  // Arms hang from the shoulders. Body top = bodyY + bodyHeight/2; the arm
+  // is 1.0 tall so its centre sits halfway down from the shoulder.
+  const shoulderY = bodyY + bodyHeight / 2;
+  const armHeight = 1.0;
+  const armCentreY = shoulderY - armHeight / 2 + 0.05; // small overlap with torso
+  const armWidth = 0.18;
+  const armDepth = 0.18;
+  const armDx = bodyWidth / 2 + armWidth / 2 - 0.02; // hug the torso sides
+  return (
+    <>
+      {/* Left eye */}
+      <mesh position={[-eyeDx, eyeY, faceZ]}>
+        <boxGeometry args={[0.08, 0.08, 0.01]} />
+        <meshStandardMaterial color="#1c1c1c" transparent={translucent} opacity={opacity} />
+      </mesh>
+      {/* Right eye */}
+      <mesh position={[eyeDx, eyeY, faceZ]}>
+        <boxGeometry args={[0.08, 0.08, 0.01]} />
+        <meshStandardMaterial color="#1c1c1c" transparent={translucent} opacity={opacity} />
+      </mesh>
+      {/* Mouth */}
+      <mesh position={[0, mouthY, faceZ]}>
+        <boxGeometry args={[0.18, 0.04, 0.01]} />
+        <meshStandardMaterial color="#1c1c1c" transparent={translucent} opacity={opacity} />
+      </mesh>
+      {/* Hair slab */}
+      <mesh position={[0, hairSlabY, 0]}>
+        <boxGeometry args={[headSize + 0.02, 0.08, headSize + 0.02]} />
+        <meshStandardMaterial color={hairColor} transparent={translucent} opacity={opacity} />
+      </mesh>
+      {/* Fringe (bangs) */}
+      <mesh position={[0, fringeY, fringeZ]}>
+        <boxGeometry args={[headSize + 0.02, 0.18, 0.04]} />
+        <meshStandardMaterial color={hairColor} transparent={translucent} opacity={opacity} />
+      </mesh>
+      {/* Left arm */}
+      <mesh position={[-armDx, armCentreY, 0]}>
+        <boxGeometry args={[armWidth, armHeight, armDepth]} />
+        <meshStandardMaterial color={skinColor} transparent={translucent} opacity={opacity} />
+      </mesh>
+      {/* Right arm */}
+      <mesh position={[armDx, armCentreY, 0]}>
+        <boxGeometry args={[armWidth, armHeight, armDepth]} />
+        <meshStandardMaterial color={skinColor} transparent={translucent} opacity={opacity} />
       </mesh>
     </>
   );
