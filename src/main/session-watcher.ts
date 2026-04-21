@@ -3,7 +3,7 @@ import type { FSWatcher } from "chokidar";
 import fs from "node:fs";
 import { EventEmitter } from "node:events";
 import type { AgentEvent } from "../shared/types";
-import { normalizeJsonlEvent } from "./event-normalizer";
+import { normalizeJsonlEvents } from "./event-normalizer";
 import { logger } from "./logger";
 
 /**
@@ -90,8 +90,8 @@ export class SessionWatcher extends EventEmitter {
       let emitted = 0;
       for (const line of lines) {
         if (!line.trim()) continue;
-        const event = this.parseLine(line, file);
-        if (event) {
+        const events = this.parseLine(line, file);
+        for (const event of events) {
           this.emit("event", event);
           emitted += 1;
         }
@@ -106,7 +106,7 @@ export class SessionWatcher extends EventEmitter {
     });
   }
 
-  private parseLine(line: string, file: string): AgentEvent | null {
+  private parseLine(line: string, file: string): AgentEvent[] {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let raw: any;
     try {
@@ -116,8 +116,8 @@ export class SessionWatcher extends EventEmitter {
         file,
         excerpt: line.slice(0, 120)
       });
-      return null;
+      return [];
     }
-    return normalizeJsonlEvent(raw, line);
+    return normalizeJsonlEvents(raw, line);
   }
 }

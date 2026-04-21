@@ -118,6 +118,84 @@ describe("HookServer", () => {
     const status = await postRaw(port, "/event", "{not json");
     expect(status).toBe(400);
   });
+
+  it("emits parent pre-tool-use + synthetic subagent-start for PreToolUse of Task", async () => {
+    server = new HookServer();
+    const received: AgentEvent[] = [];
+    server.on("event", (e: AgentEvent) => received.push(e));
+    const port = await server.start();
+
+    await post(port, "/event", {
+      hook_event_name: "PreToolUse",
+      session_id: "sess-hook-sub",
+      tool_name: "Task",
+      tool_use_id: "tuse_hook_1",
+      tool_input: { subagent_type: "explorer", prompt: "look around" }
+    });
+
+    expect(received.length).toBe(2);
+    const [parent, sub] = received;
+    expect(parent?.type).toBe("pre-tool-use");
+    expect(parent?.kind).toBe("main");
+    expect(parent?.toolName).toBe("Task");
+    expect(sub?.type).toBe("subagent-start");
+    expect(sub?.kind).toBe("subagent");
+    expect(sub?.agentId).toBe("sess-hook-sub:tuse_hook_1");
+    expect(sub?.parentAgentId).toBe("sess-hook-sub");
+  });
+
+  it("emits parent post-tool-use + subagent-end with the same synthetic id", async () => {
+    server = new HookServer();
+    const received: AgentEvent[] = [];
+    server.on("event", (e: AgentEvent) => received.push(e));
+    const port = await server.start();
+
+    await post(port, "/event", {
+      hook_event_name: "PreToolUse",
+      session_id: "sess-hook-pair",
+      tool_name: "Task",
+      tool_use_id: "tuse_pair_1",
+      tool_input: { subagent_type: "explorer" }
+    });
+    await post(port, "/event", {
+      hook_event_name: "PostToolUse",
+      session_id: "sess-hook-pair",
+      tool_name: "Task",
+      tool_use_id: "tuse_pair_1",
+      tool_result: "ok"
+    });
+
+    expect(received.length).toBe(4);
+    const subStart = received[1]!;
+    const parentPost = received[2]!;
+    const subEnd = received[3]!;
+    expect(subStart.type).toBe("subagent-start");
+    expect(parentPost.type).toBe("post-tool-use");
+    expect(parentPost.kind).toBe("main");
+    expect(subEnd.type).toBe("subagent-end");
+    // Synthetic id must be stable across the pre/post pair.
+    expect(subEnd.agentId).toBe(subStart.agentId);
+  });
+
+  it("does not synthesise a subagent when the payload is already a subagent (has agent_id)", async () => {
+    server = new HookServer();
+    const received: AgentEvent[] = [];
+    server.on("event", (e: AgentEvent) => received.push(e));
+    const port = await server.start();
+
+    await post(port, "/event", {
+      hook_event_name: "PreToolUse",
+      session_id: "sess-nested",
+      agent_id: "sub-already",
+      tool_name: "Task",
+      tool_use_id: "tuse_nested",
+      tool_input: {}
+    });
+
+    expect(received.length).toBe(1);
+    expect(received[0]?.type).toBe("pre-tool-use");
+    expect(received[0]?.kind).toBe("subagent");
+  });
 });
 
 function post(port: number, path: string, body: unknown): Promise<void> {

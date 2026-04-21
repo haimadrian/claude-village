@@ -2,7 +2,7 @@ import http from "node:http";
 import { EventEmitter } from "node:events";
 import type { AddressInfo } from "node:net";
 import type { AgentEvent } from "../shared/types";
-import { summarizeArgs } from "./event-normalizer";
+import { isSubagentDispatchTool, subagentIdFor, summarizeArgs } from "./event-normalizer";
 import { logger } from "./logger";
 
 /**
@@ -79,8 +79,8 @@ export class HookServer extends EventEmitter {
         res.writeHead(400).end();
         return;
       }
-      const event = hookPayloadToAgentEvent(payload);
-      if (event) this.emit("event", event);
+      const events = hookPayloadToAgentEvents(payload);
+      for (const event of events) this.emit("event", event);
       res.writeHead(200, { "content-type": "application/json" }).end('{"ok":true}');
     });
     req.on("error", () => {
@@ -91,21 +91,27 @@ export class HookServer extends EventEmitter {
 }
 
 /**
- * Maps a raw hook payload into the shared `AgentEvent` shape.
- * Returns `null` for payloads we do not care about (unknown hook types,
- * missing session_id, etc.) so the HTTP handler can cheaply drop them.
+ * Maps a raw hook payload into zero, one, or two `AgentEvent`s.
+ *
+ * Most hooks produce a single event. `PreToolUse` and `PostToolUse` for the
+ * `Task` / `Agent` tool produce two: the parent's tool-use event plus a
+ * synthetic `subagent-start` / `subagent-end` so the visualization spawns a
+ * character for the dispatched subagent. This mirrors what
+ * `normalizeJsonlEvents` does for the JSONL ingress path so both feeds produce
+ * identical downstream state.
  */
-function hookPayloadToAgentEvent(raw: unknown): AgentEvent | null {
-  if (!raw || typeof raw !== "object") return null;
+export function hookPayloadToAgentEvents(raw: unknown): AgentEvent[] {
+  if (!raw || typeof raw !== "object") return [];
   const p = raw as Record<string, unknown>;
   const sessionId = typeof p.session_id === "string" ? p.session_id : null;
-  if (!sessionId) return null;
+  if (!sessionId) return [];
 
   const agentId = typeof p.agent_id === "string" ? p.agent_id : sessionId;
   const parentAgentId = typeof p.parent_agent_id === "string" ? p.parent_agent_id : undefined;
   const isSubagent = typeof p.agent_id === "string";
   const kind = isSubagent ? "subagent" : "main";
   const timestamp = Date.now();
+  const toolUseId = typeof p.tool_use_id === "string" ? p.tool_use_id : undefined;
 
   const base = {
     sessionId,
@@ -117,43 +123,66 @@ function hookPayloadToAgentEvent(raw: unknown): AgentEvent | null {
 
   switch (p.hook_event_name) {
     case "SessionStart":
-      return { ...base, type: "session-start" };
+      return [{ ...base, type: "session-start" }];
 
     case "SubagentStart":
-      return {
-        ...base,
-        kind: "subagent",
-        type: "subagent-start"
-      };
+      return [{ ...base, kind: "subagent", type: "subagent-start" }];
 
     case "PreToolUse": {
       const toolName = typeof p.tool_name === "string" ? p.tool_name : "";
-      return {
+      const parentEvent: AgentEvent = {
         ...base,
         type: "pre-tool-use",
         toolName,
         toolArgsSummary: summarizeArgs(toolName, p.tool_input)
       };
+      // If the parent (main agent) is dispatching a subagent via `Task` /
+      // `Agent`, synthesise the subagent-start here. We only do this when the
+      // payload is NOT itself a subagent event; otherwise we would recurse
+      // and spawn a ghost subagent for every tool the subagent runs.
+      if (!isSubagent && isSubagentDispatchTool(toolName)) {
+        const subagentId = subagentIdFor(sessionId, toolUseId);
+        const subagentStart: AgentEvent = {
+          sessionId,
+          agentId: subagentId,
+          parentAgentId: sessionId,
+          kind: "subagent",
+          timestamp,
+          type: "subagent-start"
+        };
+        return [parentEvent, subagentStart];
+      }
+      return [parentEvent];
     }
 
     case "PostToolUse": {
       const toolName = typeof p.tool_name === "string" ? p.tool_name : "";
       const resultSummary = String(p.tool_result ?? "").slice(0, 200);
-      return {
+      const parentEvent: AgentEvent = {
         ...base,
         type: "post-tool-use",
         toolName,
         resultSummary
       };
+      if (!isSubagent && isSubagentDispatchTool(toolName)) {
+        const subagentId = subagentIdFor(sessionId, toolUseId);
+        const subagentEnd: AgentEvent = {
+          sessionId,
+          agentId: subagentId,
+          parentAgentId: sessionId,
+          kind: "subagent",
+          timestamp,
+          type: "subagent-end"
+        };
+        return [parentEvent, subagentEnd];
+      }
+      return [parentEvent];
     }
 
     case "Stop":
-      return {
-        ...base,
-        type: isSubagent ? "subagent-end" : "session-end"
-      };
+      return [{ ...base, type: isSubagent ? "subagent-end" : "session-end" }];
 
     default:
-      return null;
+      return [];
   }
 }
