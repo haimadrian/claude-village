@@ -132,9 +132,10 @@ in either step. To test the packaged build, follow the install steps in
 
 ## Known quirks
 
-- **ESLint flat-config shim** - ESLint 9 defaults to flat config, but the project still
-  uses `.eslintrc.cjs`. The lint script sets `ESLINT_USE_FLAT_CONFIG=false`; migrating
-  to flat config is tracked as tech debt in `docs/progress.md`.
+- **ESLint flat config.** The project uses `eslint.config.js` (ESLint 9 flat format).
+  Legacy-style plugin configs (`@typescript-eslint/recommended`, `react-hooks/recommended`)
+  are bridged via `@eslint/eslintrc` `FlatCompat`; `eslint-plugin-react` is loaded via
+  its native `configs.flat.recommended` export.
 - **Vitest electron stubs** - Main-process modules transitively import `electron` and
   `electron-log/main`, both of which load native bindings at import time and blow up
   under plain Node. `vitest.config.ts` aliases them to lightweight stubs in

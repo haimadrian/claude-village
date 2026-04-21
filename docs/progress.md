@@ -55,7 +55,7 @@
 
 ## Tech debt / follow-ups (not blocking, track here)
 
-- **ESLint 9 flat-config migration** - currently `ESLINT_USE_FLAT_CONFIG=false` bridges the gap. Port `.eslintrc.cjs` to `eslint.config.js` flat config and drop the env var. Easier to do now than after Tasks 8+ add React component lint rules.
+- ~~**ESLint 9 flat-config migration** - currently `ESLINT_USE_FLAT_CONFIG=false` bridges the gap. Port `.eslintrc.cjs` to `eslint.config.js` flat config and drop the env var. Easier to do now than after Tasks 8+ add React component lint rules.~~ **Done** - `eslint.config.js` now drives lint, `ESLINT_USE_FLAT_CONFIG` and `--ext` removed from scripts. Legacy plugins (`@typescript-eslint/recommended`, `react-hooks/recommended`) bridged via `@eslint/eslintrc` FlatCompat; `eslint-plugin-react` uses its native flat export.
 - ~~**Remove `--passWithNoTests` from the `test` script** once Task 2 or Task 3 lands real tests.~~ (done in task 3; flag is fully removed from `package.json`)
 - ~~**`better-sqlite3` native rebuild** - before Task 6 starts, add a `postinstall` step and `pnpm.onlyBuiltDependencies`.~~ **Resolved by dropping `better-sqlite3` entirely.** Task 6 was reworked to snapshot pinned session ids to a plain JSON file at `{userData}/pinned.json` via `src/main/session-store.ts`. No native modules, no rebuild dance, no ABI flip.
 
@@ -86,7 +86,7 @@
 
 - `vite` added as a direct devDependency (needed so `tsconfig.web.json`'s `"types": ["vite/client"]` resolves without relying on pnpm hoisting).
 - `@vitejs/plugin-react` pinned to `^4.7.0` (Vite 5 / electron-vite 2.3 compat).
-- `ESLINT_USE_FLAT_CONFIG=false` added to `lint` and `lint:fix` scripts (see tech debt above).
+- ~~`ESLINT_USE_FLAT_CONFIG=false` added to `lint` and `lint:fix` scripts (see tech debt above).~~ Superseded: flat config migration landed in `chore/eslint-flat-config`; the env var is no longer needed.
 
 ## Post-v1 upgrade path (not part of the 17-task plan)
 

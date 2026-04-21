@@ -11,8 +11,8 @@
     "preview": "electron-vite preview",
     "package": "electron-vite build && electron-builder --mac",
     "e2e:full": "electron-vite build && playwright test",
-    "lint": "ESLINT_USE_FLAT_CONFIG=false eslint src --ext .ts,.tsx && prettier --check \"src/**/*.{ts,tsx,json,md}\"",
-    "lint:fix": "ESLINT_USE_FLAT_CONFIG=false eslint src --ext .ts,.tsx --fix && prettier --write \"src/**/*.{ts,tsx,json,md}\"",
+    "lint": "eslint src && prettier --check \"src/**/*.{ts,tsx,json,md}\"",
+    "lint:fix": "eslint src --fix && prettier --write \"src/**/*.{ts,tsx,json,md}\"",
     "typecheck": "tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.web.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -31,6 +31,8 @@
     "pathfinding": "^0.4.18"
   },
   "devDependencies": {
+    "@eslint/eslintrc": "^3.3.5",
+    "@eslint/js": "^9.39.4",
     "@playwright/test": "1.50.1",
     "@react-three/drei": "^9.114.0",
     "@react-three/fiber": "^8.17.0",

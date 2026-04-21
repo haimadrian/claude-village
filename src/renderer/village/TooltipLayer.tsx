@@ -1,4 +1,3 @@
-/* eslint-disable react/no-unknown-property -- react-three-fiber extends JSX with three.js props */
 import { useEffect, useRef, useState } from "react";
 import { useThree } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
