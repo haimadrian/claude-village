@@ -230,6 +230,56 @@ export function Character({
           </div>
         </Html>
       )}
+      {agent.waitingForInput === true && (
+        <WaitingIndicator translucent={translucent} opacity={opacity} />
+      )}
+    </group>
+  );
+}
+
+/**
+ * 3D yellow exclamation mark rendered above an agent that is waiting for
+ * input (from the user for the mayor, from the orchestrator for a subagent).
+ * Sits at local y ~3.1 so it floats above the name label (y=2.2) and the
+ * speech bubble (y=2.8) without clashing. A gentle per-frame bob plus a
+ * subtle scale pulse makes it easy to spot without looking frantic.
+ */
+function WaitingIndicator({ translucent, opacity }: { translucent: boolean; opacity: number }) {
+  const groupRef = useRef<THREE.Group>(null);
+  useFrame(({ clock }) => {
+    const g = groupRef.current;
+    if (!g) return;
+    const t = clock.getElapsedTime();
+    // Bob between ~3.05 and ~3.25 so the indicator draws the eye without
+    // drifting far from the character.
+    g.position.y = 3.15 + Math.sin(t * 2.5) * 0.1;
+    const pulse = 1 + Math.sin(t * 2) * 0.05;
+    g.scale.setScalar(pulse);
+  });
+  return (
+    <group ref={groupRef} position={[0, 3.15, 0]}>
+      {/* Vertical bar of the "!" */}
+      <mesh position={[0, 0.18, 0]}>
+        <boxGeometry args={[0.18, 0.6, 0.18]} />
+        <meshStandardMaterial
+          color="#ffcc00"
+          emissive="#ff9900"
+          emissiveIntensity={0.4}
+          transparent={translucent}
+          opacity={opacity}
+        />
+      </mesh>
+      {/* Dot under the bar. Small gap so the "!" reads as two pieces. */}
+      <mesh position={[0, -0.28, 0]}>
+        <sphereGeometry args={[0.11, 16, 16]} />
+        <meshStandardMaterial
+          color="#ffcc00"
+          emissive="#ff9900"
+          emissiveIntensity={0.4}
+          transparent={translucent}
+          opacity={opacity}
+        />
+      </mesh>
     </group>
   );
 }

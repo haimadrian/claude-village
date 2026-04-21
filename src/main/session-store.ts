@@ -145,7 +145,11 @@ export class SessionStore extends EventEmitter {
     } else if (event.type === "subagent-start") {
       this.ensureAgent(session, event.agentId, "subagent", event.parentAgentId);
       const agent = session.agents.get(event.agentId);
-      if (agent) changes.push({ kind: "agent-upsert", agent });
+      if (agent) {
+        // A subagent coming back to life is not waiting on anyone.
+        if (agent.waitingForInput === true) agent.waitingForInput = false;
+        changes.push({ kind: "agent-upsert", agent });
+      }
     } else if (event.type === "session-end") {
       logger.info("SessionStore session ended", { sessionId: event.sessionId });
       session.status = "ended";
@@ -157,11 +161,22 @@ export class SessionStore extends EventEmitter {
         agent.currentZone = "tavern";
         agent.targetZone = "tavern";
         agent.ghostExpiresAt = event.timestamp + GHOST_MS;
+        // A subagent that just ended has handed control back to its
+        // orchestrator; until the orchestrator dispatches it again (or any
+        // follow-up activity arrives), it is effectively waiting for input.
+        // Any follow-up tool / message event clears this below.
+        if (agent.waitingForInput !== true) {
+          agent.waitingForInput = true;
+        }
         changes.push({ kind: "agent-upsert", agent });
       }
     } else if (event.type === "pre-tool-use" || event.type === "post-tool-use") {
       const agent = this.ensureAgent(session, event.agentId, event.kind, event.parentAgentId);
       const c = classify(event);
+      // Any tool activity means the agent is actively working, not waiting.
+      if (agent.waitingForInput === true) {
+        agent.waitingForInput = false;
+      }
       // Advance the semantic zone immediately. The renderer animates the
       // character between zones over time; it no longer relies on
       // `currentZone` for the mount-time position (that is latched on first
@@ -204,6 +219,24 @@ export class SessionStore extends EventEmitter {
         changes.push({ kind: "session-upsert", session: stripRelations(session) });
       }
     } else if (event.type === "user-message" || event.type === "assistant-message") {
+      // Track waiting-for-input on the agent the message belongs to. On an
+      // assistant-message, Claude has finished a turn; if it actually calls a
+      // tool next, the subsequent pre-tool-use clears the flag a tick later -
+      // a self-correcting one-frame false positive that matches the user's
+      // expectation: the "!" only lingers when Claude is genuinely idle.
+      // A user-message is the human (or orchestrator) replying, so the agent
+      // is no longer waiting.
+      const agent = this.ensureAgent(session, event.agentId, event.kind, event.parentAgentId);
+      const nextWaiting = event.type === "assistant-message";
+      if ((agent.waitingForInput ?? false) !== nextWaiting) {
+        if (nextWaiting) {
+          agent.waitingForInput = true;
+        } else {
+          agent.waitingForInput = false;
+        }
+        changes.push({ kind: "agent-upsert", agent });
+      }
+
       const line: TimelineLine = {
         id: `${event.sessionId}:${event.timestamp}:${Math.random().toString(36).slice(2, 6)}`,
         timestamp: event.timestamp,

@@ -47,6 +47,15 @@ export interface AgentState {
   recentActions: AgentAction[]; // ring buffer, max 5
   ghostExpiresAt?: number; // epoch ms
   skinColor: string; // hex, derived from hash(id)
+  /**
+   * True when the agent has finished its last turn and is waiting for input
+   * (from the user for the mayor, from the orchestrator for a subagent).
+   * Drives a 3D yellow "!" indicator in the renderer. Cleared the moment any
+   * new activity (tool-use, user-message, assistant-message) arrives.
+   * Optional and defaults to undefined so existing serialized state stays
+   * backwards compatible.
+   */
+  waitingForInput?: boolean;
 }
 
 export interface SessionState {

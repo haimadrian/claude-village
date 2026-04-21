@@ -194,6 +194,86 @@ describe("SessionStore", () => {
     }
   });
 
+  describe("waitingForInput", () => {
+    it("sets waitingForInput=true on the mayor after an assistant-message", () => {
+      store.apply(ev({ type: "session-start" }));
+      store.apply(ev({ type: "assistant-message", messageExcerpt: "thinking out loud" }));
+      const agent = store.getSession("s1")?.agents.get("a1");
+      expect(agent?.waitingForInput).toBe(true);
+    });
+
+    it("clears waitingForInput when a pre-tool-use arrives", () => {
+      store.apply(ev({ type: "session-start" }));
+      store.apply(ev({ type: "assistant-message", messageExcerpt: "pondering" }));
+      expect(store.getSession("s1")?.agents.get("a1")?.waitingForInput).toBe(true);
+      store.apply(ev({ type: "pre-tool-use", toolName: "Read", toolArgsSummary: "/x.ts" }));
+      expect(store.getSession("s1")?.agents.get("a1")?.waitingForInput).toBe(false);
+    });
+
+    it("clears waitingForInput when a user-message arrives", () => {
+      store.apply(ev({ type: "session-start" }));
+      store.apply(ev({ type: "assistant-message", messageExcerpt: "done" }));
+      expect(store.getSession("s1")?.agents.get("a1")?.waitingForInput).toBe(true);
+      store.apply(ev({ type: "user-message", messageExcerpt: "please continue" }));
+      expect(store.getSession("s1")?.agents.get("a1")?.waitingForInput).toBe(false);
+    });
+
+    it("sets waitingForInput=true on a subagent when subagent-end arrives, then clears on follow-up pre-tool-use", () => {
+      store.apply(ev({ type: "session-start" }));
+      store.apply(
+        ev({
+          agentId: "sub-1",
+          kind: "subagent",
+          parentAgentId: "a1",
+          type: "subagent-start"
+        })
+      );
+      store.apply(ev({ agentId: "sub-1", kind: "subagent", type: "subagent-end" }));
+      const sub1 = store.getSession("s1")?.agents.get("sub-1");
+      expect(sub1?.waitingForInput).toBe(true);
+
+      store.apply(
+        ev({
+          agentId: "sub-1",
+          kind: "subagent",
+          type: "pre-tool-use",
+          toolName: "Read",
+          toolArgsSummary: "/x.ts"
+        })
+      );
+      const sub2 = store.getSession("s1")?.agents.get("sub-1");
+      expect(sub2?.waitingForInput).toBe(false);
+    });
+
+    it("does not set waitingForInput on the mayor on session-end", () => {
+      store.apply(ev({ type: "session-start" }));
+      store.apply(ev({ type: "session-end" }));
+      const agent = store.getSession("s1")?.agents.get("a1");
+      // The session is over, not waiting. `waitingForInput` must stay falsy
+      // (either undefined or explicit false - never true).
+      expect(agent?.waitingForInput ?? false).toBe(false);
+    });
+
+    it("emits an agent-upsert patch when waitingForInput changes", () => {
+      store.apply(ev({ type: "session-start" }));
+
+      const patches: Array<boolean | undefined> = [];
+      store.on("patch", (p) => {
+        for (const c of p.changes) {
+          if (c.kind === "agent-upsert" && c.agent.id === "a1") {
+            patches.push(c.agent.waitingForInput);
+          }
+        }
+      });
+
+      store.apply(ev({ type: "assistant-message", messageExcerpt: "hi" }));
+      store.apply(ev({ type: "user-message", messageExcerpt: "reply" }));
+
+      // First patch carries waitingForInput=true, second clears it to false.
+      expect(patches).toEqual([true, false]);
+    });
+  });
+
   it("expires ghosts past their timer", () => {
     store.apply(ev({ type: "session-start" }));
     store.apply(
