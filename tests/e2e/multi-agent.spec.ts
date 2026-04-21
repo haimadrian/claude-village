@@ -2,6 +2,7 @@ import { test, expect, _electron as electron, type ElectronApplication } from "@
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
+import net from "node:net";
 
 /**
  * End-to-end flow: drive the running app entirely via the hook HTTP ingress
@@ -12,24 +13,53 @@ import os from "node:os";
  * directory so the JSONL watcher finds no pre-existing sessions; the HTTP
  * hook stream is the sole source of truth for this test.
  *
- * `CV_HOOK_PORT` is fixed to a specific port (not 0) because the test process
- * needs to POST to it directly. If the port happens to be busy locally, fail
- * loudly rather than racing for a random one.
+ * We reserve a fresh loopback port per `beforeAll` (rather than hard-coding
+ * one) so `--repeat-each` iterations do not race each other for the same
+ * port. When the previous iteration's Electron child is still releasing
+ * 127.0.0.1:<port> and the next iteration tries to bind the same fixed
+ * port, main's `HookServer.start()` rejects, which triggers `app.exit(1)`
+ * before a window is ever created - surfacing as `firstWindow()` timing
+ * out instead of an obvious "port in use" error.
  */
-const HOOK_PORT = 49333;
+let hookPort = 0;
 let fakeClaude: string;
 let app: ElectronApplication;
+
+/**
+ * Ask the OS for a free TCP port by binding to port 0, reading the
+ * assigned port, and closing the listener. There is a tiny TOCTOU gap
+ * between close and the child re-binding, but on a single-process test
+ * runner nothing else is competing for the ephemeral range, so it is
+ * sufficient in practice.
+ */
+async function pickFreePort(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const srv = net.createServer();
+    srv.once("error", reject);
+    srv.listen(0, "127.0.0.1", () => {
+      const addr = srv.address();
+      if (!addr || typeof addr === "string") {
+        srv.close();
+        reject(new Error("failed to allocate ephemeral port"));
+        return;
+      }
+      const port = addr.port;
+      srv.close(() => resolve(port));
+    });
+  });
+}
 
 test.beforeAll(async () => {
   fakeClaude = fs.mkdtempSync(path.join(os.tmpdir(), "cv-e2e-multi-"));
   fs.mkdirSync(path.join(fakeClaude, "projects"), { recursive: true });
+  hookPort = await pickFreePort();
 
   app = await electron.launch({
     args: ["out/main/index.js"],
     env: {
       ...process.env,
       CLAUDE_CONFIG_DIR: fakeClaude,
-      CV_HOOK_PORT: String(HOOK_PORT)
+      CV_HOOK_PORT: String(hookPort)
     }
   });
 });
@@ -130,7 +160,7 @@ interface HookPayload {
 }
 
 async function postHook(payload: HookPayload): Promise<void> {
-  const res = await fetch(`http://127.0.0.1:${HOOK_PORT}/event`, {
+  const res = await fetch(`http://127.0.0.1:${hookPort}/event`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(payload)
