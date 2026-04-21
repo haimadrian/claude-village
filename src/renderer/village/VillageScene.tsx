@@ -323,7 +323,10 @@ export function VillageScene({ sessionId }: VillageSceneProps) {
             );
           });
         })()}
-      <TooltipLayer {...(sessionId !== undefined ? { sessionId } : {})} />
+      {/* Raycaster half of the tooltip pipeline. Emits
+          `village:tooltip-update` events; the DOM overlay subscribes in
+          App.tsx. */}
+      <TooltipLayer />
     </Canvas>
   );
 }

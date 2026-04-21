@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { ZONES } from "../../shared/zones";
@@ -24,21 +23,47 @@ interface HoverTarget {
 }
 
 const HOVER_DELAY_MS = 200;
+const EVENT_NAME = "village:tooltip-update";
 
-interface TooltipLayerProps {
+/**
+ * CustomEvent payload the raycaster component dispatches whenever the
+ * hovered target changes. The overlay component (rendered OUTSIDE the
+ * Canvas) subscribes and paints the tooltip DOM from this state.
+ *
+ * We cannot render the DOM directly from inside the Canvas subtree: R3F's
+ * reconciler owns that tree and does not know how to mount `<div>` hosts,
+ * so `createPortal(<div/>, document.body)` from here silently fails to
+ * materialise the element. Splitting raycaster-in-Canvas from overlay-
+ * outside-Canvas keeps each piece using the reconciler it fits.
+ */
+interface TooltipUpdate {
+  hover: HoverTarget | null;
+}
+
+interface TooltipOverlayProps {
   sessionId?: string;
 }
 
-export function TooltipLayer({ sessionId }: TooltipLayerProps) {
-  const { sessions } = useSessions();
+/**
+ * Raycaster half: lives inside the Canvas, listens to pointer events on
+ * the WebGL domElement, and dispatches `village:tooltip-update` events
+ * whenever the hovered object changes. Renders nothing visible - the
+ * paired `<TooltipOverlay>` below (rendered outside the Canvas) handles
+ * the DOM.
+ */
+export function TooltipLayer() {
   const { scene, camera, gl } = useThree();
   const raycaster = useRef(new THREE.Raycaster());
   const pointer = useRef(new THREE.Vector2());
-  const [hover, setHover] = useState<HoverTarget | null>(null);
+  const lastHoverRef = useRef<HoverTarget | null>(null);
   const timer = useRef<number | null>(null);
 
   useEffect(() => {
     const el = gl.domElement;
+    const emit = (hover: HoverTarget | null): void => {
+      lastHoverRef.current = hover;
+      window.dispatchEvent(new CustomEvent<TooltipUpdate>(EVENT_NAME, { detail: { hover } }));
+    };
     const onMove = (e: PointerEvent): void => {
       const rect = el.getBoundingClientRect();
       pointer.current.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
@@ -52,15 +77,15 @@ export function TooltipLayer({ sessionId }: TooltipLayerProps) {
         for (const hit of hits) {
           const ud = findUserData(hit.object);
           if (!ud) continue;
-          setHover({ kind: ud.tooltipKind, data: ud, screen: { x: screenX, y: screenY } });
+          emit({ kind: ud.tooltipKind, data: ud, screen: { x: screenX, y: screenY } });
           return;
         }
-        setHover(null);
+        emit(null);
       }, HOVER_DELAY_MS);
     };
     const onLeave = (): void => {
       if (timer.current !== null) window.clearTimeout(timer.current);
-      setHover(null);
+      emit(null);
     };
     el.addEventListener("pointermove", onMove);
     el.addEventListener("pointerleave", onLeave);
@@ -68,16 +93,45 @@ export function TooltipLayer({ sessionId }: TooltipLayerProps) {
       el.removeEventListener("pointermove", onMove);
       el.removeEventListener("pointerleave", onLeave);
       if (timer.current !== null) window.clearTimeout(timer.current);
+      // Clear any hover state the outside overlay is holding when we unmount.
+      emit(null);
     };
   }, [camera, gl, scene]);
+
+  return null;
+}
+
+/**
+ * Overlay half: a regular DOM component that subscribes to
+ * `village:tooltip-update` events and paints the tooltip panel with plain
+ * React. Must be rendered OUTSIDE the `<Canvas>` so the host reconciler
+ * is react-dom and `<div>` / `position: fixed` work normally.
+ *
+ * Accepts the same `sessionId` as the raycaster so the panel can show
+ * zone occupancy / agent details for the right session.
+ */
+export function TooltipOverlay({ sessionId }: TooltipOverlayProps): JSX.Element | null {
+  const { sessions } = useSessions();
+  const [hover, setHover] = useState<HoverTarget | null>(null);
+
+  useEffect(() => {
+    const handler = (e: Event): void => {
+      const detail = (e as CustomEvent<TooltipUpdate>).detail;
+      setHover(detail?.hover ?? null);
+    };
+    window.addEventListener(EVENT_NAME, handler);
+    return () => {
+      window.removeEventListener(EVENT_NAME, handler);
+    };
+  }, []);
 
   if (!hover) return null;
   const session = sessionId ? sessions.get(sessionId) : undefined;
   const content = renderContent(hover, session);
   if (!content) return null;
 
-  // Position the panel just to the lower-right of the cursor, then clamp so
-  // it never runs off-screen near the viewport edges.
+  // Position the panel just to the lower-right of the cursor, then clamp
+  // so it never runs off-screen near the viewport edges.
   const OFFSET = 14;
   const MARGIN = 8;
   const MAX_W = 320;
@@ -85,20 +139,10 @@ export function TooltipLayer({ sessionId }: TooltipLayerProps) {
   const vh = typeof window !== "undefined" ? window.innerHeight : 800;
   const maxLeft = Math.max(MARGIN, vw - MAX_W - MARGIN);
   const left = Math.min(hover.screen.x + OFFSET, maxLeft);
-  // Rough height reservation so the tooltip does not flip under the cursor;
-  // exact height is unknown without layout, but 140 is plenty for the
-  // zone / character panels we render today.
   const maxTop = Math.max(MARGIN, vh - 140 - MARGIN);
   const top = Math.min(hover.screen.y + OFFSET, maxTop);
 
-  // Render into document.body via a portal so the tooltip escapes the
-  // Canvas subtree. Earlier we wrapped it in drei `<Html>`, but drei Html
-  // applies a CSS `transform` to its wrapper, which silently demotes a
-  // `position: fixed` child to `position: absolute` relative to that
-  // wrapper - so the tooltip anchored at world origin instead of following
-  // the mouse, and its containing block squished the max-width down to
-  // near-nothing. A plain portal avoids both issues.
-  return createPortal(
+  return (
     <div
       data-testid="tooltip-panel"
       style={{
@@ -119,8 +163,7 @@ export function TooltipLayer({ sessionId }: TooltipLayerProps) {
       }}
     >
       {content}
-    </div>,
-    document.body
+    </div>
   );
 }
 
@@ -162,10 +205,6 @@ function renderContent(hover: HoverTarget, session: TabSession | undefined): JSX
     if (!agentId) return null;
     const agent = session?.agents.get(agentId);
     if (!agent) return null;
-    // Mayor keeps the shield emoji on the tooltip so it reads as the main
-    // agent at a glance; subagents show just their computed label. The raw
-    // agent id is rendered below as a faint subtitle for debugging copy /
-    // paste, never as the primary identifier.
     const labels = session ? buildAgentLabels(session.agents.values()) : new Map();
     const name = labelFor(labels, agent);
     const title = agent.kind === "main" ? `🛡 ${name}` : name;

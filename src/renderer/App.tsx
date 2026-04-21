@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { SessionProvider, useSessions } from "./context/SessionContext";
 import { VillageScene } from "./village/VillageScene";
+import { TooltipOverlay } from "./village/TooltipLayer";
 import { TimelineStrip } from "./village/TimelineStrip";
 import { BubbleDrawer } from "./village/BubbleDrawer";
 import { SettingsScreen } from "./settings/SettingsScreen";
@@ -397,6 +398,11 @@ function TabBody({ sessionId }: { sessionId: string }): JSX.Element {
       >
         <VillageScene sessionId={sessionId} />
       </div>
+      {/* Tooltip overlay sits OUTSIDE the Canvas so it is reconciled by
+          react-dom (not R3F). The raycaster half of TooltipLayer still
+          lives inside the Canvas and dispatches hover updates via a
+          CustomEvent that this overlay subscribes to. */}
+      <TooltipOverlay sessionId={sessionId} />
       <div
         style={{
           position: "absolute",
