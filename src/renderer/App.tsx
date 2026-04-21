@@ -120,7 +120,7 @@ function Shell(): JSX.Element {
         style={{
           background: "#1f2a1f",
           color: "#dde",
-          overflow: "auto",
+          overflow: "hidden",
           padding: 12,
           display: "flex",
           flexDirection: "column",
@@ -165,7 +165,18 @@ function Shell(): JSX.Element {
             </span>
           </button>
         </div>
-        <ul style={{ listStyle: "none", padding: 0, marginTop: 8, flex: 1, minHeight: 0 }}>
+        <ul
+          style={{
+            listStyle: "none",
+            padding: 0,
+            marginTop: 8,
+            marginBottom: 0,
+            flex: 1,
+            minHeight: 0,
+            overflowY: "auto",
+            overflowX: "hidden"
+          }}
+        >
           {visibleSessions.map((s) => {
             const live = deriveStatus(s);
             const label = s.title ?? s.sessionId.slice(0, 8);
@@ -195,7 +206,10 @@ function Shell(): JSX.Element {
           title="Settings"
           aria-label="Open settings"
           style={{
+            flexShrink: 0,
             marginTop: 8,
+            paddingTop: 8,
+            borderTop: "1px solid #2a3",
             display: "flex",
             alignItems: "center",
             gap: 8,
@@ -203,9 +217,11 @@ function Shell(): JSX.Element {
             textAlign: "left",
             background: "transparent",
             color: "#dde",
-            border: "none",
-            borderRadius: 6,
-            padding: "8px 10px",
+            borderLeft: "none",
+            borderRight: "none",
+            borderBottom: "none",
+            borderRadius: 0,
+            padding: "10px 10px 4px",
             cursor: "pointer",
             fontSize: 14,
             fontFamily: "inherit"
