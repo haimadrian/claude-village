@@ -17,7 +17,7 @@ const HOOK_SNIPPET: string = JSON.stringify(
             {
               type: "command",
               command:
-                "curl -sS -X POST -H 'Content-Type: application/json' --data-binary @- http://127.0.0.1:49251/event"
+                "curl -s --max-time 2 -X POST -H 'Content-Type: application/json' --data-binary @- http://127.0.0.1:49251/event >/dev/null 2>&1 || true"
             }
           ]
         }
@@ -29,7 +29,7 @@ const HOOK_SNIPPET: string = JSON.stringify(
             {
               type: "command",
               command:
-                "curl -sS -X POST -H 'Content-Type: application/json' --data-binary @- http://127.0.0.1:49251/event"
+                "curl -s --max-time 2 -X POST -H 'Content-Type: application/json' --data-binary @- http://127.0.0.1:49251/event >/dev/null 2>&1 || true"
             }
           ]
         }
@@ -40,7 +40,7 @@ const HOOK_SNIPPET: string = JSON.stringify(
             {
               type: "command",
               command:
-                "curl -sS -X POST -H 'Content-Type: application/json' --data-binary @- http://127.0.0.1:49251/event"
+                "curl -s --max-time 2 -X POST -H 'Content-Type: application/json' --data-binary @- http://127.0.0.1:49251/event >/dev/null 2>&1 || true"
             }
           ]
         }
@@ -51,7 +51,7 @@ const HOOK_SNIPPET: string = JSON.stringify(
             {
               type: "command",
               command:
-                "curl -sS -X POST -H 'Content-Type: application/json' --data-binary @- http://127.0.0.1:49251/event"
+                "curl -s --max-time 2 -X POST -H 'Content-Type: application/json' --data-binary @- http://127.0.0.1:49251/event >/dev/null 2>&1 || true"
             }
           ]
         }
