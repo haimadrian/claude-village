@@ -181,12 +181,22 @@ export function Character({
           />
         </Suspense>
       </GltfErrorBoundary>
-      <Html position={[0, 2.2, 0]} center zIndexRange={[100, 0]}>
+      {/*
+        The drei `<Html>` wrapper appends a DOM div (position:absolute) to
+        the canvas's parent. Its default `pointer-events` is `auto`, so if
+        the label sits over the scene the browser routes pointer events to
+        the label instead of the canvas - which means the `TooltipLayer`
+        canvas pointermove handler never fires and the tooltip silently
+        stops working. Force the wrapper AND the inner label to
+        `pointer-events: none` so pointer events always fall through to
+        the canvas. The label is purely decorative (tooltip shows the same
+        info on hover) so no interactivity is lost.
+      */}
+      <Html position={[0, 2.2, 0]} center zIndexRange={[100, 0]} style={{ pointerEvents: "none" }}>
         <div
           data-testid="agent-label"
           data-agent-kind={agent.kind}
           data-agent-id={agent.id}
-          title={displayName}
           style={{
             fontSize: 16,
             fontWeight: 600,
@@ -195,7 +205,7 @@ export function Character({
             padding: "3px 8px",
             borderRadius: 6,
             whiteSpace: "nowrap",
-            pointerEvents: "auto",
+            pointerEvents: "none",
             textShadow: "0 1px 2px rgba(0,0,0,0.5)"
           }}
         >
@@ -203,7 +213,16 @@ export function Character({
         </div>
       </Html>
       {lastAction && (
-        <Html position={[0, 2.8, 0]} center zIndexRange={[100, 0]}>
+        // Wrapper is `pointer-events: none` so bubble's bounding box does
+        // not swallow tooltip raycasts in the canvas beneath. The inner
+        // bubble div opts back in to `auto` so its own `onClick` and
+        // `cursor: pointer` still work.
+        <Html
+          position={[0, 2.8, 0]}
+          center
+          zIndexRange={[100, 0]}
+          style={{ pointerEvents: "none" }}
+        >
           <div
             onClick={(e) => {
               e.stopPropagation();
@@ -214,6 +233,7 @@ export function Character({
             title={lastAction.summary}
             style={{
               cursor: "pointer",
+              pointerEvents: "auto",
               fontSize: 14,
               background: "rgba(255,255,255,0.95)",
               color: "#111",

@@ -76,8 +76,12 @@ export function TooltipLayer({ sessionId }: TooltipLayerProps) {
   const content = renderContent(hover, session);
   if (!content) return null;
   return (
-    <Html>
+    // Wrapper set to `pointer-events: none` so the tooltip panel itself
+    // never intercepts pointer events on the canvas (which would cause the
+    // raycast to stop firing while the tooltip is visible).
+    <Html style={{ pointerEvents: "none" }}>
       <div
+        data-testid="tooltip-panel"
         style={{
           position: "fixed",
           left: hover.screen.x + 12,
