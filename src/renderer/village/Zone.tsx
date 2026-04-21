@@ -1,10 +1,11 @@
 /* eslint-disable react/no-unknown-property -- react-three-fiber extends JSX with three.js props */
 import { Suspense, useMemo } from "react";
-import { Html, useGLTF } from "@react-three/drei";
+import { Text, useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import type { ZoneMeta } from "../../shared/zones";
 import { zoneModel } from "./assetMap";
 import { GltfErrorBoundary } from "./GltfErrorBoundary";
+import { ZoneIcon3D } from "./ZoneIcon3D";
 
 interface ZoneProps {
   meta: ZoneMeta;
@@ -12,13 +13,35 @@ interface ZoneProps {
 }
 
 /**
- * Tier 2 zone: renders a bundled GLB voxel building in place of the Tier 1
- * box platform. Preserves the signpost, floating emoji icon, and tooltip
- * userData exactly as before so TooltipLayer / pathfinding / label tests
- * continue to pass. If the GLB fails to load, <GltfErrorBoundary> swaps in
- * the Tier 1 cube so the scene never goes blank.
+ * Tier 2 zone: renders a bundled GLB voxel building plus a proper
+ * signpost (post + plank with label) and a small 3D zone icon hovering
+ * above the roof. The zone group's centre is the old behaviour (used by
+ * pathfinding and the camera focus). Characters no longer stand here -
+ * see slotPositionFor() in slots.ts.
+ *
+ * Preserves `userData` for TooltipLayer so hover still resolves to the
+ * zone name / description.
  */
 export function Zone({ meta, position }: ZoneProps) {
+  // The signpost is placed on the island-facing side of the zone so it
+  // reads as "welcoming" the central walkway. Direction from zone to
+  // island centre is the negated, normalised position vector.
+  const inward = useMemo(() => {
+    const [x, , z] = position;
+    const mag = Math.sqrt(x * x + z * z);
+    if (mag === 0) return { x: -1, z: 0 };
+    return { x: -x / mag, z: -z / mag };
+  }, [position]);
+
+  const signpostOffset = 1.8;
+  const signpostPos: [number, number, number] = [
+    inward.x * signpostOffset,
+    0,
+    inward.z * signpostOffset
+  ];
+  // Plank faces the island centre: rotate so its +Z faces inward.
+  const plankYaw = Math.atan2(inward.x, inward.z);
+
   return (
     <group
       position={position}
@@ -34,23 +57,59 @@ export function Zone({ meta, position }: ZoneProps) {
           <ZoneBuilding meta={meta} />
         </Suspense>
       </GltfErrorBoundary>
-      <mesh position={[1.5, 1.5, 1.5]} userData={{ tooltipKind: "zone-signpost", zoneId: meta.id }}>
-        <boxGeometry args={[0.2, 2, 0.2]} />
+      <Signpost meta={meta} position={signpostPos} yaw={plankYaw} />
+      <ZoneIcon3D zoneId={meta.id} />
+    </group>
+  );
+}
+
+/**
+ * Wooden signpost: thin vertical post plus a horizontal plank near the
+ * top bearing the zone name. The whole group is rotated by `yaw` so the
+ * plank faces the island centre.
+ *
+ * Preserves the `zone-signpost` tooltipKind so TooltipLayer hit-testing
+ * behaves exactly as before.
+ */
+function Signpost({
+  meta,
+  position,
+  yaw
+}: {
+  meta: ZoneMeta;
+  position: [number, number, number];
+  yaw: number;
+}) {
+  return (
+    <group
+      position={position}
+      rotation={[0, yaw, 0]}
+      userData={{ tooltipKind: "zone-signpost", zoneId: meta.id }}
+    >
+      {/* Post. */}
+      <mesh position={[0, 1, 0]}>
+        <boxGeometry args={[0.15, 2, 0.15]} />
         <meshStandardMaterial color="#8b5a2b" />
       </mesh>
-      <Html
-        position={[0, 3, 0]}
-        center
-        zIndexRange={[100, 0]}
-        userData={{ tooltipKind: "zone-icon", zoneId: meta.id }}
+      {/* Plank. */}
+      <mesh position={[0, 1.7, 0.05]}>
+        <boxGeometry args={[1.4, 0.45, 0.08]} />
+        <meshStandardMaterial color="#c19a6b" />
+      </mesh>
+      {/* Label on the front of the plank, nudged slightly forward so it
+          doesn't z-fight with the plank mesh. */}
+      <Text
+        position={[0, 1.7, 0.1]}
+        fontSize={0.22}
+        color="#2a1a0a"
+        anchorX="center"
+        anchorY="middle"
+        maxWidth={1.3}
+        outlineWidth={0.01}
+        outlineColor="#f3e2c2"
       >
-        <div
-          title={`${meta.icon} ${meta.name} - ${meta.description}`}
-          style={{ fontSize: 28, pointerEvents: "auto", cursor: "default", userSelect: "none" }}
-        >
-          {meta.icon}
-        </div>
-      </Html>
+        {meta.name}
+      </Text>
     </group>
   );
 }

@@ -11,7 +11,14 @@ import type { AgentState } from "../../shared/types";
 
 interface CharacterProps {
   agent: AgentState;
-  zonePositions: Record<string, [number, number, number]>;
+  /**
+   * World-space position where the character starts (its slot at the
+   * current zone). Captured once at mount; subsequent agent-patch
+   * re-renders must not snap the character back here.
+   */
+  slotStart: [number, number, number];
+  /** World-space slot the character is walking toward. */
+  slotTarget: [number, number, number];
   walkable: boolean[][];
   gridSize: number;
   /**
@@ -31,7 +38,8 @@ const SEPARATION_MAX_STEP_PER_SECOND = 2;
 
 export function Character({
   agent,
-  zonePositions,
+  slotStart,
+  slotTarget,
   walkable,
   gridSize,
   positionsRef
@@ -47,23 +55,24 @@ export function Character({
   // effectively snapping the character back to the Tavern mid-walk. Storing
   // the mount position in a ref decouples it from re-render cycles; from then
   // on, `useFrame` is the sole owner of the group's transform.
-  const initialWorldRef = useRef<[number, number, number]>(
-    zonePositions[agent.currentZone] ?? [0, 0, 0]
-  );
+  const initialWorldRef = useRef<[number, number, number]>(slotStart);
 
-  const targetWorld = useMemo<[number, number, number]>(
-    () => zonePositions[agent.targetZone] ?? [0, 0, 0],
-    [zonePositions, agent.targetZone]
-  );
+  // VillageScene recomputes the slot tuple on every render, so the tuple
+  // identity changes even when the target zone hasn't changed. Use a
+  // stringified snapshot as the useEffect dependency so path recomputation
+  // only fires when the coordinates actually change.
+  const targetX = slotTarget[0];
+  const targetY = slotTarget[1];
+  const targetZ = slotTarget[2];
 
   useEffect(() => {
     const g = groupRef.current;
     if (!g) return;
     const currentGrid = worldToGrid(g.position, gridSize);
-    const targetGrid = worldToGrid(new THREE.Vector3(...targetWorld), gridSize);
+    const targetGrid = worldToGrid(new THREE.Vector3(targetX, targetY, targetZ), gridSize);
     pathRef.current = computePath(currentGrid, targetGrid, walkable);
     pathIndex.current = 0;
-  }, [agent.targetZone, gridSize, walkable, targetWorld]);
+  }, [agent.targetZone, gridSize, walkable, targetX, targetY, targetZ]);
 
   // Register/unregister our live position in the shared map so siblings can
   // read it for separation. We reuse a single `Vector3` per agent for the
