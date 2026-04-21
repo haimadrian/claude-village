@@ -11,6 +11,9 @@ test-results/
 playwright-report/
 reports/
 _pages/
+# Local-only context handoff for cross-session work. Must stay out of git.
+CONTEXT.md
+CONTEXT.*.md
 .vite/
 .turbo/
 .superpowers/

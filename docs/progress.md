@@ -64,11 +64,23 @@
 - **Shipping.** All 17 tasks complete, M5 reached. A signed-off-locally DMG is produced by `pnpm package`.
 - **Key simplifications since the design doc was written:**
   - No native modules (dropped `better-sqlite3` for a JSON snapshot at `{userData}/pinned.json`).
-  - No rebuild dance - `pnpm package` is just `electron-builder --mac`.
+  - No rebuild dance - `pnpm package` is just `electron-vite build && electron-builder --mac`.
   - Preload is emitted as CommonJS (`out/preload/index.cjs`) because Electron's preload sandbox rejects ESM.
 - **Logging live** - `electron-log` writes to `{userData}/logs/main.log` (rolling 5MB x 3). INFO by default, DEBUG when `CV_DEBUG=1`.
 - **CI test reports** - Vitest emits JUnit + HTML + v8 coverage under `reports/` when `CI=true`; Playwright emits HTML + JUnit under `playwright-report/`. Both uploaded as GitHub Actions artifacts and published via `dorny/test-reporter`.
 - **E2E coverage** - grew from 1 to 3 specs: session-in-sidebar, active-auto-opens-tab (+ canvas renders), and Settings gear to About flow with Esc close.
+- **GitHub Pages** - `.github/workflows/pages.yml` runs on main pushes, builds a site via `scripts/build-pages.mjs` (blue-themed, sidebar nav, responsive / mobile drawer), publishes docs + unit / coverage / e2e reports under `https://haimadrian.github.io/claude-village/`.
+- **Release workflow** - `.github/workflows/release.yml` triggered on tag push `v*` or manual dispatch. Builds + packages + publishes the `.dmg` as a GitHub Release asset.
+- **WebStorm shared launchers** - `.idea/runConfigurations/` has four launchers (Run app dev, Unit tests, E2E build + Playwright, Build release .dmg). Only that subdir is kept in git; rest of `.idea/` is ignored.
+
+## Post-v1 polish pass (not in the original plan, shipped in-session)
+
+- **Hook port is pinned** - `127.0.0.1:49251` always. If busy the app shows an `Electron.dialog.showErrorBox` and quits with exit code 1, so the `~/.claude/settings.json` snippet never goes stale. E2E bypasses via `CV_HOOK_PORT=0` (random port).
+- **Hook snippet correct** - uses `--data-binary @-` (Claude Code writes payload on stdin, not an env var) and `.*` regex matcher. Trailing `2>/dev/null || true` + `--max-time 2` so the hook is a silent no-op when claude-village isn't running.
+- **UX pass** - sidebar sorts by `lastActivityAt`; status computed at render time (active < 60s, idle < 10m, else ended) with opacity dim; horizontal tab-nav scroll chrome hidden; `Settings` button relocated to sidebar bottom with `flexShrink: 0` + border-top separator (pinned regardless of session-list scroll); Character name 16px + speech bubble 14px; zone icons + name labels have native `title=` tooltips; per-tab refresh button top-right of tab body calls `refreshSession(id)`; global `<style>` zeroes body/html/#root scrollbars.
+- **Session titles** - `custom-title` and `summary` JSONL events captured by `event-normalizer` and stored as `session.title`. Shown in sidebar (truncated 28 chars + ellipsis) and tab nav (14 chars) with full title on hover via `title=` attr. Title-only events do not bump `lastActivityAt`.
+- **Session age filter** - configurable in Settings: `1 day / 1 week / 1 month / 3 months / 6 months / 1 year / All`. Default `1 month`. Persisted in `localStorage` under `claudeVillage.sessionAgeFilter`. Change dispatches a `cv:filter-changed` event that Shell listens for.
+- **Sidebar refresh** - ↻ button next to "Sessions" heading calls `listSessions()` IPC + merges, for the chokidar-missed-a-new-file case. Spins 600ms.
 
 ## Accepted spec deviations from Task 1 (documented for posterity)
 
