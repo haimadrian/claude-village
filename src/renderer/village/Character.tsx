@@ -32,7 +32,10 @@ interface CharacterProps {
   positionsRef: React.MutableRefObject<Map<string, THREE.Vector3>>;
 }
 
-const SPEED = 3;
+// Characters walk at 8 u/s so a full cross-ring traversal (~26 units across
+// the current 13-radius zone ring) completes in about 3 seconds, well before
+// the next typical tool event lands and redirects them to a new zone.
+const SPEED = 8;
 const SEPARATION_RADIUS = 0.8;
 const SEPARATION_STRENGTH = 3;
 const SEPARATION_MAX_STEP_PER_SECOND = 2;
