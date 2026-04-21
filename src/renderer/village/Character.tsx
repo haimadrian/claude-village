@@ -309,15 +309,31 @@ function CharacterMesh({
   const gltf = useGLTF(url) as unknown as { scene: THREE.Group };
   const cloned = useMemo(() => {
     const root = gltf.scene.clone(true);
+    // The GLTF round-trip moves the original mesh name ("body", "head",
+    // "hat") onto the wrapping Object3D node; the actual Mesh child ends
+    // up unnamed. Checking `mesh.name === "body"` therefore never matches
+    // and every subagent's body falls through to the GLB-authored white,
+    // which is why "all agents looked white". Walk the parent chain to
+    // find an ancestor name, and tint when either the mesh OR an
+    // ancestor is the body.
+    const isBodyMesh = (mesh: THREE.Object3D): boolean => {
+      let o: THREE.Object3D | null = mesh;
+      while (o) {
+        if (o.name === "body") return true;
+        o = o.parent;
+      }
+      return false;
+    };
     root.traverse((node: THREE.Object3D) => {
       const mesh = node as THREE.Mesh;
       if (!mesh.isMesh) return;
+      const tintBody = isBodyMesh(mesh);
       const src = mesh.material as THREE.Material | THREE.Material[];
       const cloneOne = (m: THREE.Material): THREE.Material => {
         const std = (m as THREE.MeshStandardMaterial).clone();
         std.transparent = translucent;
         std.opacity = opacity;
-        if (mesh.name === "body" && "color" in std) {
+        if (tintBody && "color" in std) {
           (std as THREE.MeshStandardMaterial).color = new THREE.Color(skinColor);
         }
         return std;
