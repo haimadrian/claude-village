@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useThree } from "@react-three/fiber";
-import { Html } from "@react-three/drei";
 import * as THREE from "three";
 import { ZONES } from "../../shared/zones";
 import { useSessions, type TabSession } from "../context/SessionContext";
@@ -75,30 +75,52 @@ export function TooltipLayer({ sessionId }: TooltipLayerProps) {
   const session = sessionId ? sessions.get(sessionId) : undefined;
   const content = renderContent(hover, session);
   if (!content) return null;
-  return (
-    // Wrapper set to `pointer-events: none` so the tooltip panel itself
-    // never intercepts pointer events on the canvas (which would cause the
-    // raycast to stop firing while the tooltip is visible).
-    <Html style={{ pointerEvents: "none" }}>
-      <div
-        data-testid="tooltip-panel"
-        style={{
-          position: "fixed",
-          left: hover.screen.x + 12,
-          top: hover.screen.y + 12,
-          background: "rgba(0,0,0,0.85)",
-          color: "#fff",
-          padding: "8px 10px",
-          borderRadius: 4,
-          fontSize: 12,
-          maxWidth: 300,
-          pointerEvents: "none",
-          zIndex: 1000
-        }}
-      >
-        {content}
-      </div>
-    </Html>
+
+  // Position the panel just to the lower-right of the cursor, then clamp so
+  // it never runs off-screen near the viewport edges.
+  const OFFSET = 14;
+  const MARGIN = 8;
+  const MAX_W = 320;
+  const vw = typeof window !== "undefined" ? window.innerWidth : 1280;
+  const vh = typeof window !== "undefined" ? window.innerHeight : 800;
+  const maxLeft = Math.max(MARGIN, vw - MAX_W - MARGIN);
+  const left = Math.min(hover.screen.x + OFFSET, maxLeft);
+  // Rough height reservation so the tooltip does not flip under the cursor;
+  // exact height is unknown without layout, but 140 is plenty for the
+  // zone / character panels we render today.
+  const maxTop = Math.max(MARGIN, vh - 140 - MARGIN);
+  const top = Math.min(hover.screen.y + OFFSET, maxTop);
+
+  // Render into document.body via a portal so the tooltip escapes the
+  // Canvas subtree. Earlier we wrapped it in drei `<Html>`, but drei Html
+  // applies a CSS `transform` to its wrapper, which silently demotes a
+  // `position: fixed` child to `position: absolute` relative to that
+  // wrapper - so the tooltip anchored at world origin instead of following
+  // the mouse, and its containing block squished the max-width down to
+  // near-nothing. A plain portal avoids both issues.
+  return createPortal(
+    <div
+      data-testid="tooltip-panel"
+      style={{
+        position: "fixed",
+        left,
+        top,
+        background: "rgba(0,0,0,0.88)",
+        color: "#fff",
+        padding: "8px 10px",
+        borderRadius: 4,
+        fontSize: 12,
+        lineHeight: 1.35,
+        width: "max-content",
+        maxWidth: MAX_W,
+        pointerEvents: "none",
+        zIndex: 1000,
+        boxShadow: "0 4px 12px rgba(0,0,0,0.35)"
+      }}
+    >
+      {content}
+    </div>,
+    document.body
   );
 }
 
