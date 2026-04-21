@@ -12,24 +12,24 @@ const HOOK_SNIPPET: string = JSON.stringify(
     hooks: {
       PreToolUse: [
         {
-          matcher: "*",
+          matcher: ".*",
           hooks: [
             {
               type: "command",
               command:
-                "curl -sS -X POST -H 'Content-Type: application/json' -d \"$CLAUDE_HOOK_PAYLOAD\" http://127.0.0.1:49251/event"
+                "curl -sS -X POST -H 'Content-Type: application/json' --data-binary @- http://127.0.0.1:49251/event"
             }
           ]
         }
       ],
       PostToolUse: [
         {
-          matcher: "*",
+          matcher: ".*",
           hooks: [
             {
               type: "command",
               command:
-                "curl -sS -X POST -H 'Content-Type: application/json' -d \"$CLAUDE_HOOK_PAYLOAD\" http://127.0.0.1:49251/event"
+                "curl -sS -X POST -H 'Content-Type: application/json' --data-binary @- http://127.0.0.1:49251/event"
             }
           ]
         }
@@ -40,7 +40,7 @@ const HOOK_SNIPPET: string = JSON.stringify(
             {
               type: "command",
               command:
-                "curl -sS -X POST -H 'Content-Type: application/json' -d \"$CLAUDE_HOOK_PAYLOAD\" http://127.0.0.1:49251/event"
+                "curl -sS -X POST -H 'Content-Type: application/json' --data-binary @- http://127.0.0.1:49251/event"
             }
           ]
         }
@@ -51,7 +51,7 @@ const HOOK_SNIPPET: string = JSON.stringify(
             {
               type: "command",
               command:
-                "curl -sS -X POST -H 'Content-Type: application/json' -d \"$CLAUDE_HOOK_PAYLOAD\" http://127.0.0.1:49251/event"
+                "curl -sS -X POST -H 'Content-Type: application/json' --data-binary @- http://127.0.0.1:49251/event"
             }
           ]
         }
