@@ -42,6 +42,7 @@ import { BoatFleet } from "./Boat";
 import { Seabed } from "./Seabed";
 import { FishSchool } from "./FishSchool";
 import { IslandGreenery } from "./IslandGreenery";
+import { UnderwaterAtmosphere } from "./UnderwaterAtmosphere";
 import {
   GRID_SIZE,
   MAIN_ISLAND_HEIGHT,
@@ -84,6 +85,14 @@ export function VillageScene({ sessionId }: VillageSceneProps) {
   const positionsRef = useRef<Map<string, THREE.Vector3>>(new Map());
 
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
+  /**
+   * Wraps the drei `<Sky>` dome and the `<Clouds>` cluster so that a
+   * sibling component (`UnderwaterAtmosphere`) can toggle their
+   * collective visibility when the camera dives below the waterline.
+   * Using `group.visible` keeps the children mounted - cheaper than a
+   * React conditional-mount on every threshold crossing.
+   */
+  const skyGroupRef = useRef<THREE.Group | null>(null);
   /**
    * Desired camera target - what `controls.target` is lerp-ing toward.
    * We do not snap straight to it; instead the `CameraTargetLerper`
@@ -145,9 +154,6 @@ export function VillageScene({ sessionId }: VillageSceneProps) {
 
   return (
     <Canvas camera={{ position: [22, 18, 22], fov: 45 }}>
-      {/* Sky: clear midday. A high sunPosition gives the default drei shader
-          the "high noon" look; default turbidity/rayleigh keep it blue. */}
-      <Sky sunPosition={[100, 80, 50]} turbidity={8} rayleigh={2} />
       <ambientLight intensity={0.55} />
       <directionalLight position={[20, 30, 10]} intensity={0.95} castShadow />
       <OrbitControls
@@ -205,50 +211,62 @@ export function VillageScene({ sessionId }: VillageSceneProps) {
       {/* Boats cruising the sea. */}
       <BoatFleet />
 
-      {/* Clouds: a small cluster above the island. Kept low-density so
-          scroll/orbit performance stays smooth. */}
-      <Clouds material={THREE.MeshBasicMaterial} limit={64}>
-        <Cloud
-          position={[-18, 18, -10]}
-          seed={1}
-          segments={20}
-          bounds={[6, 2, 2]}
-          volume={5}
-          color="#ffffff"
-        />
-        <Cloud
-          position={[16, 22, -6]}
-          seed={2}
-          segments={20}
-          bounds={[7, 2, 2]}
-          volume={5}
-          color="#ffffff"
-        />
-        <Cloud
-          position={[0, 24, 14]}
-          seed={3}
-          segments={18}
-          bounds={[6, 2, 2]}
-          volume={4}
-          color="#ffffff"
-        />
-        <Cloud
-          position={[-10, 20, 18]}
-          seed={4}
-          segments={16}
-          bounds={[5, 2, 2]}
-          volume={4}
-          color="#ffffff"
-        />
-        <Cloud
-          position={[22, 19, 8]}
-          seed={5}
-          segments={18}
-          bounds={[6, 2, 2]}
-          volume={4}
-          color="#ffffff"
-        />
-      </Clouds>
+      {/* Sky + clouds share a single group so that `UnderwaterAtmosphere`
+          can hide both with a single `visible` toggle while the camera
+          is under the waterline. `<Sky>` is a real 3D shader dome and
+          `<Clouds>` instances real geometry - scene.background cannot
+          occlude either of them, so visibility gating is required. */}
+      <group ref={skyGroupRef}>
+        {/* Sky: clear midday. A high sunPosition gives the default drei
+            shader the "high noon" look; default turbidity/rayleigh keep
+            it blue. */}
+        <Sky sunPosition={[100, 80, 50]} turbidity={8} rayleigh={2} />
+        {/* Clouds: a small cluster above the island. Kept low-density so
+            scroll/orbit performance stays smooth. */}
+        <Clouds material={THREE.MeshBasicMaterial} limit={64}>
+          <Cloud
+            position={[-18, 18, -10]}
+            seed={1}
+            segments={20}
+            bounds={[6, 2, 2]}
+            volume={5}
+            color="#ffffff"
+          />
+          <Cloud
+            position={[16, 22, -6]}
+            seed={2}
+            segments={20}
+            bounds={[7, 2, 2]}
+            volume={5}
+            color="#ffffff"
+          />
+          <Cloud
+            position={[0, 24, 14]}
+            seed={3}
+            segments={18}
+            bounds={[6, 2, 2]}
+            volume={4}
+            color="#ffffff"
+          />
+          <Cloud
+            position={[-10, 20, 18]}
+            seed={4}
+            segments={16}
+            bounds={[5, 2, 2]}
+            volume={4}
+            color="#ffffff"
+          />
+          <Cloud
+            position={[22, 19, 8]}
+            seed={5}
+            segments={18}
+            bounds={[6, 2, 2]}
+            volume={4}
+            color="#ffffff"
+          />
+        </Clouds>
+      </group>
+      <UnderwaterAtmosphere skyGroupRef={skyGroupRef} />
 
       {ZONES.map((z, i) => (
         <Zone key={z.id} meta={z} position={positions[i]!} />

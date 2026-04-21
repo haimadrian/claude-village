@@ -29,3 +29,32 @@ export const SEABED_Y = -18;
 
 /** Radius of the seabed disc (also the scatter area for rocks/corals). */
 export const SEABED_RADIUS = 100;
+
+/**
+ * Camera y threshold below which the scene is considered "underwater".
+ * Matches `FishSchool`'s internal gate so the fish school and the
+ * underwater atmosphere toggle together on the exact same frame.
+ */
+export const UNDERWATER_CAMERA_Y = -0.2;
+
+/**
+ * Fog + background colour used while the camera is underwater. A deep
+ * teal-blue that reads as "ocean depth" rather than "night sky".
+ */
+export const UNDERWATER_COLOR = 0x0a3a6b;
+
+/**
+ * Exponential fog density underwater. Tuned so the seabed (~18 units
+ * below the camera on a dive) still reads clearly, while distant
+ * minor-island trunks at 40+ units blur into the blue murk.
+ */
+export const UNDERWATER_FOG_DENSITY = 0.06;
+
+/**
+ * Pure helper for tests and callers that want to classify a camera
+ * height without pulling in three.js. Mirrors the inline check used in
+ * `UnderwaterAtmosphere` and `FishSchool`.
+ */
+export function isUnderwater(cameraY: number, threshold: number = UNDERWATER_CAMERA_Y): boolean {
+  return cameraY < threshold;
+}
