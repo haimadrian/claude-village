@@ -7,7 +7,7 @@ import { computePath, type GridPoint } from "./pathfinding";
 import { computeSeparation } from "./separation";
 import { characterModel } from "./assetMap";
 import { GltfErrorBoundary } from "./GltfErrorBoundary";
-import { hairColor } from "./appearance";
+import { hairColor, trousersColor } from "./appearance";
 import type { AgentState } from "../../shared/types";
 
 interface CharacterProps {
@@ -139,10 +139,12 @@ export function Character({
   const lastAction = agent.recentActions[agent.recentActions.length - 1];
 
   const hair = hairColor(agent.id);
+  const trousers = trousersColor(agent.id);
   const fallback = (
     <FallbackCharacter
       skinColor={agent.skinColor}
       hairColor={hair}
+      trousersColor={trousers}
       translucent={translucent}
       opacity={opacity}
     />
@@ -160,6 +162,7 @@ export function Character({
             kind={agent.kind}
             skinColor={agent.skinColor}
             hairColor={hair}
+            trousersColor={trousers}
             translucent={translucent}
             opacity={opacity}
           />
@@ -226,12 +229,14 @@ function CharacterMesh({
   kind,
   skinColor,
   hairColor,
+  trousersColor,
   translucent,
   opacity
 }: {
   kind: "main" | "subagent";
   skinColor: string;
   hairColor: string;
+  trousersColor: string;
   translucent: boolean;
   opacity: number;
 }) {
@@ -275,35 +280,53 @@ function CharacterMesh({
         translucent={translucent}
         opacity={opacity}
       />
+      {/* The GLB body bottom sits at local y=0 (centered at y=0.5, height
+          1.0). Dropping legs down from that seam grounds the feet near the
+          zone floor at the neutral bob position. Matches the Tier 1
+          proportions so both tiers look consistent during GLB load / retry. */}
+      <CharacterLegs
+        bodyBottomY={0}
+        trousersColor={trousersColor}
+        translucent={translucent}
+        opacity={opacity}
+      />
     </>
   );
 }
 
 /**
- * Tier 1 two-box character plus Minecraft-style face, hair, and arms. Used as
- * Suspense fallback and as the hard error fallback when a GLB cannot be
- * loaded.
+ * Tier 1 two-box character plus Minecraft-style face, hair, arms, and legs.
+ * Used as Suspense fallback and as the hard error fallback when a GLB cannot
+ * be loaded.
  *
- * Geometry summary (all local to the parent group):
- *   body:  0.6 x 1.6 x 0.4   centred at y=0, so top = 0.8, front = z+0.2
- *   head:  0.5 x 0.5 x 0.5   centred at y=1.2, so top = 1.45, front = z+0.25
- *   arms:  0.18 x 1.0 x 0.18 hanging from the shoulders
+ * Geometry summary (all local to the parent group; the group sits at world
+ * y=1 and bobs up to y=1.1, so a foot bottom at local y=-1.0 grounds the
+ * character on the zone floor at the neutral bob position):
+ *   head:   0.5  x 0.5 x 0.5   centred at y=1.2,  top=1.45
+ *   torso:  0.6  x 0.8 x 0.4   centred at y=0.4,  bottom=0.0, top=0.8
+ *   legs:   0.25 x 1.0 x 0.3   centred at y=-0.5, bottom=-1.0, top=0.0
+ *   arms:   0.18 x 1.0 x 0.18  hanging from the shoulders (shoulder y=0.8)
  */
 function FallbackCharacter({
   skinColor,
   hairColor,
+  trousersColor,
   translucent,
   opacity
 }: {
   skinColor: string;
   hairColor: string;
+  trousersColor: string;
   translucent: boolean;
   opacity: number;
 }) {
   return (
     <>
-      <mesh>
-        <boxGeometry args={[0.6, 1.6, 0.4]} />
+      {/* Torso: shortened from 1.6 to 0.8 tall and lifted to sit on top of
+          the new legs. Bottom = 0, top = 0.8 which matches the old shoulder
+          line so the head geometry stays in place. */}
+      <mesh position={[0, 0.4, 0]}>
+        <boxGeometry args={[0.6, 0.8, 0.4]} />
         <meshStandardMaterial color={skinColor} transparent={translucent} opacity={opacity} />
       </mesh>
       <mesh position={[0, 1.2, 0]}>
@@ -313,11 +336,17 @@ function FallbackCharacter({
       <CharacterDecorations
         headY={1.2}
         headSize={0.5}
-        bodyY={0}
-        bodyHeight={1.6}
+        bodyY={0.4}
+        bodyHeight={0.8}
         bodyWidth={0.6}
         skinColor={skinColor}
         hairColor={hairColor}
+        translucent={translucent}
+        opacity={opacity}
+      />
+      <CharacterLegs
+        bodyBottomY={0}
+        trousersColor={trousersColor}
         translucent={translucent}
         opacity={opacity}
       />
@@ -416,6 +445,53 @@ function CharacterDecorations({
       <mesh position={[armDx, armCentreY, 0]}>
         <boxGeometry args={[armWidth, armHeight, armDepth]} />
         <meshStandardMaterial color={skinColor} transparent={translucent} opacity={opacity} />
+      </mesh>
+    </>
+  );
+}
+
+/**
+ * Two rigid legs hanging below the torso. Shared between `FallbackCharacter`
+ * and `CharacterMesh` so both tiers stand on the ground instead of floating.
+ *
+ * Geometry (local to the parent group):
+ *   each leg:  0.25 x 1.0 x 0.3
+ *   top:       at `bodyBottomY` (flush with torso bottom)
+ *   bottom:    at `bodyBottomY - 1.0`
+ *
+ * With the parent group at world y=1.0 (neutral bob) and `bodyBottomY=0`
+ * for both tiers, the foot bottom lands at world y=0 - the zone floor.
+ */
+function CharacterLegs({
+  bodyBottomY,
+  trousersColor,
+  translucent,
+  opacity
+}: {
+  bodyBottomY: number;
+  trousersColor: string;
+  translucent: boolean;
+  opacity: number;
+}) {
+  const legHeight = 1.0;
+  const legWidth = 0.25;
+  const legDepth = 0.3;
+  // Leg centre sits half a leg-length below the torso bottom.
+  const legCentreY = bodyBottomY - legHeight / 2;
+  // Small gap between the two legs so they read as distinct voxel columns.
+  const legGap = 0.04;
+  const legDx = legWidth / 2 + legGap / 2;
+  return (
+    <>
+      {/* Left leg */}
+      <mesh position={[-legDx, legCentreY, 0]}>
+        <boxGeometry args={[legWidth, legHeight, legDepth]} />
+        <meshStandardMaterial color={trousersColor} transparent={translucent} opacity={opacity} />
+      </mesh>
+      {/* Right leg */}
+      <mesh position={[legDx, legCentreY, 0]}>
+        <boxGeometry args={[legWidth, legHeight, legDepth]} />
+        <meshStandardMaterial color={trousersColor} transparent={translucent} opacity={opacity} />
       </mesh>
     </>
   );

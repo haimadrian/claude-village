@@ -14,6 +14,14 @@ const HAIR_PALETTE: readonly string[] = [
   "#a85f3c" // ginger
 ];
 
+const TROUSERS_PALETTE: readonly string[] = [
+  "#2f3a5b", // dark navy
+  "#3a2a1a", // dark brown
+  "#1f3a2a", // forest green
+  "#2a2a2a", // charcoal
+  "#4a2a3a" // deep plum
+];
+
 /**
  * Simple 32-bit string hash (djb2-ish). Sufficient for palette bucketing;
  * not intended for anything security-sensitive.
@@ -37,4 +45,15 @@ export function hairColor(id: string): string {
   return HAIR_PALETTE[idx] ?? HAIR_PALETTE[0]!;
 }
 
-export const __test = { HAIR_PALETTE, stringHash };
+/**
+ * Pick a trousers / leg colour from a small palette keyed by the agent id.
+ * Stable across runs for the same id. A different palette from hair so that
+ * hair and legs read as distinct Minecraft-style voxel layers rather than
+ * matching by accident.
+ */
+export function trousersColor(id: string): string {
+  const idx = stringHash(id) % TROUSERS_PALETTE.length;
+  return TROUSERS_PALETTE[idx] ?? TROUSERS_PALETTE[0]!;
+}
+
+export const __test = { HAIR_PALETTE, TROUSERS_PALETTE, stringHash };
