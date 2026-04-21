@@ -10,9 +10,9 @@ import { useFrame } from "@react-three/fiber";
  * the per-vertex y on every frame via two summed sinusoids. Normals are
  * recomputed so lighting stays correct.
  *
- * A separate, deeper opaque plane ("seabed") is rendered below the
- * wavy surface so when the camera tilts under the horizon the player
- * sees dark-blue water depth instead of the sky bleeding through.
+ * The opaque ocean floor moved to `Seabed.tsx`; this component only
+ * owns the animated surface and a thin deep-blue fallback layer a few
+ * units below it so the horizon reads as water from any angle.
  */
 
 export interface WavyWaterProps {
@@ -22,7 +22,8 @@ export interface WavyWaterProps {
   wavelength?: number;
   speed?: number;
   surfaceY?: number;
-  seabedY?: number;
+  /** y of a thin deep-blue backing plane just under the surface. */
+  deepLayerY?: number;
 }
 
 export function WavyWater({
@@ -32,7 +33,7 @@ export function WavyWater({
   wavelength = 8,
   speed = 0.9,
   surfaceY = -0.2,
-  seabedY = -1.6
+  deepLayerY = -2.5
 }: WavyWaterProps) {
   const geomRef = useRef<THREE.PlaneGeometry>(null);
   // Cache the flat (pre-animation) y of every vertex so each frame
@@ -85,11 +86,13 @@ export function WavyWater({
           side={THREE.DoubleSide}
         />
       </mesh>
-      {/* Opaque deep layer - hides the sky when the camera pitches
-          below the horizon so the ocean has visual depth. */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, seabedY, 0]}>
+      {/* Thin deep-blue backing plane sitting just under the surface.
+          Not the ocean floor (that lives in Seabed.tsx) - this just
+          ensures the water reads as water when the camera skims along
+          the waterline, instead of the sky showing through gaps. */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, deepLayerY, 0]}>
         <planeGeometry args={[size, size]} />
-        <meshStandardMaterial color="#0b2540" side={THREE.DoubleSide} />
+        <meshStandardMaterial color="#123a5c" transparent opacity={0.7} side={THREE.DoubleSide} />
       </mesh>
     </group>
   );

@@ -39,15 +39,20 @@ import { WavyWater } from "./WavyWater";
 import { MinorIsland } from "./MinorIsland";
 import { MINOR_ISLANDS } from "./minorIslands";
 import { BoatFleet } from "./Boat";
-import { GRID_SIZE, MAIN_ISLAND_RADIUS, ZONE_RING_RADIUS } from "./sceneConstants";
+import { Seabed } from "./Seabed";
+import { FishSchool } from "./FishSchool";
+import { IslandGreenery } from "./IslandGreenery";
+import {
+  GRID_SIZE,
+  MAIN_ISLAND_HEIGHT,
+  MAIN_ISLAND_RADIUS,
+  ZONE_RING_RADIUS
+} from "./sceneConstants";
 
 // Re-exported to keep the pre-refactor API surface of this module. Older
 // call sites may import `RADIUS`, `GRID_SIZE`, `ISLAND_RADIUS` from here.
 const RADIUS = ZONE_RING_RADIUS;
 const ISLAND_RADIUS = MAIN_ISLAND_RADIUS;
-
-/** Height of the main island cylinder. Raised so the sides are visible. */
-const MAIN_ISLAND_HEIGHT = 3;
 
 interface VillageSceneProps {
   sessionId?: string;
@@ -154,26 +159,32 @@ export function VillageScene({ sessionId }: VillageSceneProps) {
         target={[0, 0, 0]}
         minDistance={4}
         maxDistance={80}
-        maxPolarAngle={Math.PI * 0.55}
+        maxPolarAngle={Math.PI * 0.7}
       />
 
       <CameraTargetLerper controlsRef={controlsRef} desiredTargetRef={desiredTargetRef} />
       <KeyboardCameraController controlsRef={controlsRef} desiredTargetRef={desiredTargetRef} />
 
-      {/* Animated water surface + opaque seabed. Replaces the old flat
-          plane and gives the camera something to look at when it
-          tilts under the horizon. */}
+      {/* Animated water surface. The actual ocean floor is rendered by
+          `Seabed` well below. */}
       <WavyWater />
 
-      {/* Main island: a tall cylinder with earthy sides so looking from
-          below shows brown cliff rather than a wafer-thin disc. A thin
-          grass cap cylinder on top keeps the green surface visually
-          distinct from the dirt walls. */}
+      {/* Ocean floor: sandy displaced plane with rocks, seagrass, corals. */}
+      <Seabed />
+
+      {/* Fish school - visibility gated by camera.y inside the component. */}
+      <FishSchool />
+
+      {/* Main island: a tall cylinder with earthy sides that extends far
+          below the water line (MAIN_ISLAND_HEIGHT is large). The bottom
+          of the cylinder tapers inward so it reads as an island rising
+          from the seabed rather than a floating disc. */}
       <group position={[0, 0, 0]}>
         {/* Side wall - dirt / warm earth. Pushed down so the top face
-            of the cylinder sits at y=0. */}
+            of the cylinder sits at y=0. Bottom radius is ~65% of top
+            so the underwater silhouette tapers. */}
         <mesh position={[0, -MAIN_ISLAND_HEIGHT / 2, 0]} receiveShadow>
-          <cylinderGeometry args={[ISLAND_RADIUS, ISLAND_RADIUS * 0.95, MAIN_ISLAND_HEIGHT, 48]} />
+          <cylinderGeometry args={[ISLAND_RADIUS, ISLAND_RADIUS * 0.65, MAIN_ISLAND_HEIGHT, 48]} />
           <meshStandardMaterial color="#8b6a3b" roughness={0.95} />
         </mesh>
         {/* Grass cap. A thin cylinder on the very top. */}
@@ -182,6 +193,9 @@ export function VillageScene({ sessionId }: VillageSceneProps) {
           <meshStandardMaterial color="#6b8e23" roughness={0.9} />
         </mesh>
       </group>
+
+      {/* Grass tufts + small flowers scattered across the main island. */}
+      <IslandGreenery />
 
       {/* Minor islands scattered around the main island. Purely decorative. */}
       {MINOR_ISLANDS.map((layout) => (
