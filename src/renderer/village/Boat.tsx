@@ -3,6 +3,69 @@ import { useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { MAIN_ISLAND_RADIUS } from "./sceneConstants";
+import { MINOR_ISLANDS } from "./minorIslands";
+
+/**
+ * How far (in world units) from a minor island's edge the boats must
+ * keep. Wide enough that the boat's hull (half-length ~1 unit) never
+ * overlaps the disc even when it is tracking along the orbit at a
+ * shallow angle.
+ */
+export const BOAT_ISLAND_CLEARANCE = 1.5;
+
+/** Minimal obstacle shape used by the avoidance helper. */
+export interface BoatObstacle {
+  center: { x: number; z: number };
+  radius: number;
+}
+
+/**
+ * Push a proposed boat position out of any obstacle disc by the
+ * shortest radial distance. Pure and easily unit-testable.
+ *
+ * The orbit parametrisation naturally guides boats around the main
+ * island, but minor islands sit inside the orbit annulus - a straight
+ * orbit puts some boats directly through them. For every obstacle
+ * whose safety disc (radius + clearance) contains the proposed
+ * position, we move the boat outward along the obstacle-to-boat
+ * direction until it sits exactly on the safety disc edge. If the
+ * proposed position coincides with the island centre, we nudge along
+ * +x as a deterministic fallback so the result is never NaN.
+ */
+export function deflectAroundIslands(
+  position: { x: number; z: number },
+  obstacles: readonly BoatObstacle[],
+  clearance: number = BOAT_ISLAND_CLEARANCE
+): { x: number; z: number } {
+  let x = position.x;
+  let z = position.z;
+  for (const o of obstacles) {
+    const dx = x - o.center.x;
+    const dz = z - o.center.z;
+    const safe = o.radius + clearance;
+    const distSq = dx * dx + dz * dz;
+    if (distSq >= safe * safe) continue;
+    const dist = Math.sqrt(distSq);
+    if (dist < 1e-6) {
+      x = o.center.x + safe;
+      z = o.center.z;
+      continue;
+    }
+    const push = safe / dist;
+    x = o.center.x + dx * push;
+    z = o.center.z + dz * push;
+  }
+  return { x, z };
+}
+
+/**
+ * The obstacle list used at runtime. Derived from the minor-island
+ * archipelago so any future regeneration automatically flows through.
+ */
+const BOAT_OBSTACLES: readonly BoatObstacle[] = MINOR_ISLANDS.map((i) => ({
+  center: { x: i.center[0], z: i.center[2] },
+  radius: i.radius
+}));
 
 /**
  * Parameters for a single boat's orbit around the main island. Kept
@@ -144,6 +207,12 @@ export function BoatFleet() {
   // position plus its tangent vector.
   const lookTarget = useMemo(() => new THREE.Vector3(), []);
 
+  // Remember each boat's previous xz position so we can compute the
+  // true heading after island avoidance, not the pure orbit tangent.
+  // When the deflection changes the path mid-frame, the boat should
+  // visually bank toward where it actually just moved.
+  const prevXzRef = useRef<Array<{ x: number; z: number } | null>>([]);
+
   useFrame((state) => {
     const t = state.clock.elapsedTime;
     for (let i = 0; i < BOAT_FLEET_CONFIG.length; i++) {
@@ -151,8 +220,31 @@ export function BoatFleet() {
       const group = groupsRef.current[i];
       if (!group) continue;
       const { position, tangent } = boatOrbitAt(orbit, t);
-      group.position.set(position[0], position[1], position[2]);
-      lookTarget.set(position[0] + tangent[0], position[1], position[2] + tangent[2]);
+      // Avoid minor islands by pushing the proposed orbit position out of
+      // any obstacle safety disc. The y (bob) stays as computed by the
+      // orbit - only the xz plane needs deflection.
+      const safe = deflectAroundIslands({ x: position[0], z: position[2] }, BOAT_OBSTACLES);
+      group.position.set(safe.x, position[1], safe.z);
+
+      // Heading: prefer the actual frame-over-frame motion so the boat
+      // banks with the deflection. On the first frame (no previous xz
+      // yet) or if motion is vanishingly small, fall back to the orbit
+      // tangent so the boat never faces a random direction.
+      const prev = prevXzRef.current[i];
+      let hx = tangent[0];
+      let hz = tangent[2];
+      if (prev) {
+        const mx = safe.x - prev.x;
+        const mz = safe.z - prev.z;
+        if (mx * mx + mz * mz > 1e-6) {
+          const len = Math.hypot(mx, mz);
+          hx = mx / len;
+          hz = mz / len;
+        }
+      }
+      prevXzRef.current[i] = { x: safe.x, z: safe.z };
+
+      lookTarget.set(safe.x + hx, position[1], safe.z + hz);
       group.lookAt(lookTarget);
       // Gentle pitch/roll - small sinusoidal tilt around the local
       // x-axis (pitch) and z-axis (roll). The existing `lookAt` sets
