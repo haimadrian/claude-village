@@ -105,7 +105,32 @@ export class SessionStore extends EventEmitter {
     if (event.type !== "session-title") {
       session.lastActivityAt = event.timestamp;
     }
+
+    // If new activity arrives on a session we previously marked "ended"
+    // (e.g. the main agent emitted a Stop line but subagents kept working,
+    // or the user resumed the conversation), reopen it so the UI does not
+    // lie about a running session being over. `session-end` below will
+    // re-close it when the session actually ends; metadata-only events
+    // (session-title, subagent-end) must not reopen.
+    const isActivity =
+      event.type === "session-start" ||
+      event.type === "subagent-start" ||
+      event.type === "user-message" ||
+      event.type === "assistant-message" ||
+      event.type === "pre-tool-use" ||
+      event.type === "post-tool-use";
+    const reopened = isActivity && session.status === "ended";
+    if (reopened) {
+      session.status = "active";
+    }
+
     const changes: SessionPatch["changes"] = [];
+    // If we just flipped the session back to active, emit a session-upsert
+    // up front so the renderer picks up the new status even when the
+    // branches below only push agent/timeline updates.
+    if (reopened) {
+      changes.push({ kind: "session-upsert", session: stripRelations(session) });
+    }
 
     if (event.type === "session-start") {
       logger.info("SessionStore session started", {

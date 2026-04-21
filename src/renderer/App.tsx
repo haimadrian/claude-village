@@ -11,9 +11,7 @@ import {
   loadFilter,
   type SessionAgeFilter
 } from "./settings/sessionFilter";
-
-const ACTIVE_MS = 60_000;
-const IDLE_MS = 10 * 60_000;
+import { deriveStatus } from "./sessionStatus";
 
 // Injected once at the root so the Electron window itself never scrolls and
 // so the tab nav can scroll horizontally without showing the scrollbar chrome.
@@ -23,17 +21,6 @@ html, body { margin: 0; height: 100%; overflow: hidden; }
 .cv-no-scrollbar::-webkit-scrollbar { display: none; }
 @keyframes cv-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 `;
-
-function deriveStatus(s: {
-  status: "active" | "idle" | "ended";
-  lastActivityAt: number;
-}): "active" | "idle" | "ended" {
-  if (s.status === "ended") return "ended";
-  const age = Date.now() - s.lastActivityAt;
-  if (age < ACTIVE_MS) return "active";
-  if (age < IDLE_MS) return "idle";
-  return "ended";
-}
 
 export default function App(): JSX.Element {
   return (
@@ -370,7 +357,7 @@ function TabBody({ sessionId }: { sessionId: string }): JSX.Element {
       >
         <div>{sessionId.slice(0, 8)}</div>
         <div>Agents: {s.agents.size}</div>
-        <div>Status: {s.status}</div>
+        <div>Status: {deriveStatus(s)}</div>
       </div>
       <button
         onClick={onRefreshSession}

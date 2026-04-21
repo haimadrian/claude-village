@@ -80,6 +80,48 @@ describe("SessionStore", () => {
     expect(store.getSession("s1")?.status).toBe("ended");
   });
 
+  it("reopens an ended session when new activity arrives", () => {
+    store.apply(ev({ type: "session-start" }));
+    store.apply(ev({ type: "session-end" }));
+    expect(store.getSession("s1")?.status).toBe("ended");
+
+    const captured: string[] = [];
+    store.on("patch", (p) => {
+      for (const c of p.changes) {
+        if (c.kind === "session-upsert") captured.push(c.session.status);
+      }
+    });
+
+    store.apply(ev({ type: "pre-tool-use", toolName: "Read", toolArgsSummary: "/x.ts" }));
+
+    expect(store.getSession("s1")?.status).toBe("active");
+    // The renderer must see the status flip via a session-upsert patch;
+    // without one, the sidebar and tab status line would stay "ended".
+    expect(captured).toContain("active");
+  });
+
+  it("does not end the parent session when a subagent ends", () => {
+    store.apply(ev({ type: "session-start" }));
+    store.apply(
+      ev({
+        agentId: "sub-1",
+        kind: "subagent",
+        parentAgentId: "a1",
+        type: "subagent-start"
+      })
+    );
+    store.apply(ev({ agentId: "sub-1", kind: "subagent", type: "subagent-end" }));
+    const session = store.getSession("s1");
+    expect(session?.status).toBe("active");
+  });
+
+  it("does not reopen on session-title after session-end", () => {
+    store.apply(ev({ type: "session-start" }));
+    store.apply(ev({ type: "session-end" }));
+    store.apply(ev({ type: "session-title", sessionTitle: "Older title" }));
+    expect(store.getSession("s1")?.status).toBe("ended");
+  });
+
   it("emits a diff on every apply", () => {
     let diffs = 0;
     store.on("patch", () => diffs++);
