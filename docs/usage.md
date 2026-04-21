@@ -88,15 +88,23 @@ the village.
 
 - Click and drag anywhere in the village to rotate the camera.
 - Scroll (pinch on a trackpad) to zoom in and out.
-- Clicking a timeline segment will pan and re-center automatically.
+- Click a zone to glide the camera's focus to that zone; click a timeline
+  segment to glide to that agent.
 - Arrow keys pan the camera along the ground plane relative to where it is
   currently facing: `Up` / `Down` move along the view axis, `Left` / `Right`
-  strafe sideways. Hold Shift to pan faster. Panning overrides any in-flight
-  focus-agent / focus-zone glide, so pressing an arrow key always gives you
-  immediate manual control.
+  strafe sideways. Forward / back is boosted (~2.2x strafe speed) so the
+  perceived motion feels balanced - forward-pan translates the orbit target
+  along the camera look direction which visually reads slower than strafing
+  at the same world speed. Hold Shift to pan faster. Panning overrides any
+  in-flight focus-agent / focus-zone glide, so pressing an arrow key always
+  gives you immediate manual control.
 - `+` / `=` (or `PgUp`) dolly the camera in; `-` / `_` (or `PgDn`) dolly out.
 - Arrow/dolly keys are ignored while focus is inside a text input, textarea,
   or any other editable field, so typing in Settings never jitters the camera.
+- Tilt the camera below the horizon to dive underwater. The world switches
+  to an underwater atmosphere automatically: a blue-teal exponential fog
+  attaches, the sky and clouds hide, and a school of fish appears swimming
+  above the seabed. Rise back above the waterline and the sky returns.
 
 ## Sidebar footer icons
 

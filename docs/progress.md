@@ -154,6 +154,19 @@ Three parallel worktrees, each merged as an independent squash commit once all t
 
 Post-wave-7 totals: **180 unit** + **4 e2e**, lint / typecheck / build all green. Main log: 25 squash + docs commits since `b7f9edd`.
 
+### 2026-04-21 wave 8: underwater atmosphere, visual polish, regression fixes
+
+Six small commits that landed one after another as the user play-tested the scene:
+
+- **Underwater atmosphere** (`ba9dbc0`). New `UnderwaterAtmosphere` component attaches `THREE.FogExp2` in deep teal-blue and swaps `scene.background` to the same colour when `camera.position.y < -0.2`; above the threshold both are cleared so drei `<Sky>` paints as before. `<Sky>` and `<Clouds>` wrapped in a single group whose `.visible` flips on the same threshold so they stop leaking through the water. `WavyWater` is already `DoubleSide`, so looking up from below shows the blue underside.
+- **Underwater fog density reduced** (`629c4e3`). Initial 0.06 FogExp2 density was ~90 percent opaque at ~30 units and hid the seabed. Dropped to 0.022 so the seabed, coral, and seagrass stay readable while distant minor islands past ~60 units still blur into the blue.
+- **Arrow-key forward speed boost** (`2f63d9d`). Forward / back pan moves the orbit target along the camera look vector; at the same world-units per second it reads as "slow" while left / right strafing looks fine. New `FORWARD_MULTIPLIER = 2.2` applied only to `ArrowUp` / `ArrowDown`. Diagonal cap bumped so up+right does not race past forward-only. Five `keyboardPan` tests updated to expect the boosted axis.
+- **GLTF body-tint fix** (`a898eb6`). All subagents were still rendering white because the GLTF export+load round-trip moves the original mesh name ("body") onto the wrapping `Object3D` node; the actual `Mesh` child ends up unnamed. The runtime tint check `mesh.name === "body"` therefore never matched on loaded GLBs. Fixed by walking the parent chain when deciding whether to tint, so meshes whose ancestor is named "body" pick up the per-agent shirt colour.
+- **Tooltip regression + dedicated e2e** (`ac16d0c`). Drei `<Html>` in non-transform mode leaves `pointer-events: auto` on its wrapper div, so the character name label and speech bubble sat above the canvas DOM and swallowed browser `pointermove` events. `TooltipLayer`'s canvas pointermove never fired, the raycaster never ran, and no tooltip appeared while a character was on screen. Forced `pointerEvents: "none"` on the Html wrapper AND inner div for the label + speech bubble + tooltip panel itself (speech bubble inner keeps `auto` for its click handler). New `tests/e2e/tooltip.spec.ts` sweeps a 5x5 grid over the canvas, asserts the tooltip appears after the 200ms debounce, then clears to 0 on `mouse.move(0,0)`. Regression cannot land silently a fourth time.
+- **Underwater atmosphere tests** shipped alongside the fog feature: 3 Vitest cases for a pure `isUnderwater(cameraY)` helper.
+
+Post-wave-8 totals: **183 unit** + **5 e2e**, lint / typecheck / build all green. Main log: 31 squash + docs commits since `b7f9edd`.
+
 ## How to update this file
 
 When an agent starts a task:
