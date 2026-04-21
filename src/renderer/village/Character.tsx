@@ -1,10 +1,12 @@
 /* eslint-disable react/no-unknown-property -- react-three-fiber extends JSX with three.js props */
-import { useRef, useEffect, useMemo } from "react";
+import { Suspense, useRef, useEffect, useMemo } from "react";
 import { useFrame } from "@react-three/fiber";
-import { Html } from "@react-three/drei";
+import { Html, useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import { computePath, type GridPoint } from "./pathfinding";
 import { computeSeparation } from "./separation";
+import { characterModel } from "./assetMap";
+import { GltfErrorBoundary } from "./GltfErrorBoundary";
 import type { AgentState } from "../../shared/types";
 
 interface CharacterProps {
@@ -126,20 +128,26 @@ export function Character({
   const labelPrefix = agent.kind === "main" ? "🛡 " : "";
   const lastAction = agent.recentActions[agent.recentActions.length - 1];
 
+  const fallback = (
+    <FallbackCharacter skinColor={agent.skinColor} translucent={translucent} opacity={opacity} />
+  );
+
   return (
     <group
       ref={groupRef}
       position={[initialWorld[0], 1, initialWorld[2]]}
       userData={{ tooltipKind: "character", agentId: agent.id, agentKind: agent.kind }}
     >
-      <mesh>
-        <boxGeometry args={[0.6, 1.6, 0.4]} />
-        <meshStandardMaterial color={agent.skinColor} transparent={translucent} opacity={opacity} />
-      </mesh>
-      <mesh position={[0, 1.2, 0]}>
-        <boxGeometry args={[0.5, 0.5, 0.5]} />
-        <meshStandardMaterial color="#f3c89a" transparent={translucent} opacity={opacity} />
-      </mesh>
+      <GltfErrorBoundary label={`character:${agent.kind}`} fallback={fallback}>
+        <Suspense fallback={fallback}>
+          <CharacterMesh
+            kind={agent.kind}
+            skinColor={agent.skinColor}
+            translucent={translucent}
+            opacity={opacity}
+          />
+        </Suspense>
+      </GltfErrorBoundary>
       <Html position={[0, 2.2, 0]} center zIndexRange={[100, 0]}>
         <div
           title={`${agent.kind === "main" ? "Mayor" : "Villager"} - ${agent.id}`}
@@ -188,6 +196,74 @@ export function Character({
         </Html>
       )}
     </group>
+  );
+}
+
+/**
+ * Loads the per-kind GLB character model and applies the agent's hashed skin
+ * colour + ghost transparency to every mesh in the cloned subtree. Only
+ * the mesh named "body" receives the per-agent colour; head / hat retain
+ * their authored material so skin tone stays consistent across agents.
+ */
+function CharacterMesh({
+  kind,
+  skinColor,
+  translucent,
+  opacity
+}: {
+  kind: "main" | "subagent";
+  skinColor: string;
+  translucent: boolean;
+  opacity: number;
+}) {
+  const url = characterModel(kind === "main" ? "mayor" : "villager");
+  const gltf = useGLTF(url) as unknown as { scene: THREE.Group };
+  const cloned = useMemo(() => {
+    const root = gltf.scene.clone(true);
+    root.traverse((node: THREE.Object3D) => {
+      const mesh = node as THREE.Mesh;
+      if (!mesh.isMesh) return;
+      const src = mesh.material as THREE.Material | THREE.Material[];
+      const cloneOne = (m: THREE.Material): THREE.Material => {
+        const std = (m as THREE.MeshStandardMaterial).clone();
+        std.transparent = translucent;
+        std.opacity = opacity;
+        if (mesh.name === "body" && "color" in std) {
+          (std as THREE.MeshStandardMaterial).color = new THREE.Color(skinColor);
+        }
+        return std;
+      };
+      mesh.material = Array.isArray(src) ? src.map(cloneOne) : cloneOne(src);
+    });
+    return root;
+  }, [gltf, skinColor, translucent, opacity]);
+  return <primitive object={cloned} />;
+}
+
+/**
+ * Tier 1 two-box character. Used as Suspense fallback and as the hard
+ * error fallback when a GLB cannot be loaded.
+ */
+function FallbackCharacter({
+  skinColor,
+  translucent,
+  opacity
+}: {
+  skinColor: string;
+  translucent: boolean;
+  opacity: number;
+}) {
+  return (
+    <>
+      <mesh>
+        <boxGeometry args={[0.6, 1.6, 0.4]} />
+        <meshStandardMaterial color={skinColor} transparent={translucent} opacity={opacity} />
+      </mesh>
+      <mesh position={[0, 1.2, 0]}>
+        <boxGeometry args={[0.5, 0.5, 0.5]} />
+        <meshStandardMaterial color="#f3c89a" transparent={translucent} opacity={opacity} />
+      </mesh>
+    </>
   );
 }
 

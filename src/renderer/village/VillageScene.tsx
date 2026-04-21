@@ -2,8 +2,25 @@
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { Canvas } from "@react-three/fiber";
-import { OrbitControls } from "@react-three/drei";
+import { OrbitControls, useGLTF } from "@react-three/drei";
 import { logger } from "../logger";
+import { allModelUrls } from "./assetMap";
+
+// Preload every bundled GLB exactly once (at module load). useGLTF.preload
+// primes the internal GLTFLoader cache so the first scene render doesn't
+// stutter while 9 buildings + 2 characters all resolve in parallel.
+for (const url of allModelUrls()) {
+  try {
+    useGLTF.preload(url);
+  } catch (err) {
+    // A preload failure is never fatal - Zone/Character components each
+    // fall back to a Tier 1 cube. Log once so the condition is visible.
+    logger.warn("useGLTF.preload failed", {
+      url,
+      error: err instanceof Error ? err.message : String(err)
+    });
+  }
+}
 // `three-stdlib` is a transitive dep of @react-three/drei but not a direct
 // dependency, so its types are not resolvable from this project. Fall back to
 // `any` for the imperative ref - the only methods we touch are `target.set`

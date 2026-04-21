@@ -1,0 +1,49 @@
+claude-village - Tier 2 voxel asset bundle
+===========================================
+
+Target upstream source
+----------------------
+Kenney.nl CC0 voxel packs. Packs relevant for this app:
+
+  - Mini Characters 1.1   (https://kenney.nl/assets/mini-characters-1)
+  - Conquer               (https://kenney.nl/assets/conquer)
+  - Castle Kit            (https://kenney.nl/assets/castle-kit)
+  - Dungeon Pack          (https://kenney.nl/assets/dungeon-pack)
+  - Nature Kit            (https://kenney.nl/assets/nature-kit)
+  - Platformer Kit        (https://kenney.nl/assets/platformer-kit)
+
+License
+-------
+All Kenney.nl asset packs are released under CC0 1.0 Universal (public domain):
+
+  https://creativecommons.org/publicdomain/zero/1.0/
+
+No attribution is required. Credit is optional but appreciated:
+
+  "Assets by Kenney (kenney.nl) - CC0"
+
+Current contents of this directory
+----------------------------------
+The files presently shipped here are NOT the final Kenney GLBs. They are
+small placeholder GLBs generated programmatically via three.js GLTFExporter
+(see ../../../../scripts/generate-placeholder-glbs.mjs) so that the Tier 2
+asset pipeline (useGLTF + <Clone> + preload + fallback) is wired end-to-end
+without a network fetch at build time.
+
+The placeholders are released into the public domain (CC0) and may be
+replaced by real Kenney GLBs at any time. The swap is mechanical: drop
+matching-named .glb files into this directory and nothing else changes.
+
+File name     | Role in the app         | Replace with (Kenney source)
+--------------|-------------------------|---------------------------------
+zone-office.glb    | Office building   | Castle Kit / Platformer Kit house
+zone-library.glb   | Library building  | Castle Kit / Platformer Kit
+zone-mine.glb      | Mine building     | Dungeon Pack
+zone-forest.glb    | Forest building   | Nature Kit (tree / cabin)
+zone-farm.glb      | Farm building     | Conquer / Platformer Kit
+zone-nether.glb    | Nether portal     | Dungeon Pack (arch / portal)
+zone-signpost.glb  | Signpost          | Nature Kit (signpost.glb)
+zone-spawner.glb   | Spawner           | Dungeon Pack (crystal / altar)
+zone-tavern.glb    | Tavern            | Castle Kit / Conquer (inn)
+character-mayor.glb   | Mayor           | Mini Characters 1.1 (mayor-ish)
+character-villager.glb| Villager        | Mini Characters 1.1 (villager)
