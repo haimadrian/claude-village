@@ -39,6 +39,13 @@ fs.mkdirSync(path.join(out, "docs"), { recursive: true });
 fs.mkdirSync(path.join(out, "reports"), { recursive: true });
 fs.mkdirSync(path.join(out, "assets"), { recursive: true });
 
+// Copy the static screenshots into the Pages bundle so the home page can
+// reference them under `assets/screenshots/`.
+const screenshotsSrc = path.join(root, "docs/assets/screenshots");
+if (fs.existsSync(screenshotsSrc)) {
+  copyDir(screenshotsSrc, path.join(out, "assets", "screenshots"));
+}
+
 // Docs catalog - drives the sidebar and page generation.
 const docs = [
   { slug: "install", title: "Install", source: "docs/install.md" },
@@ -96,6 +103,35 @@ h1, h2, h3, h4 { color: #f2f7ff; }
 h1 { font-size: 30px; margin-top: 0; line-height: 1.2; letter-spacing: -0.01em; }
 h2 { margin-top: 36px; border-bottom: 1px solid var(--border); padding-bottom: 6px; }
 img { max-width: 100%; height: auto; }
+
+/* Screenshot gallery on the home page */
+.gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 18px;
+  margin: 18px 0 28px;
+}
+.gallery .shot {
+  margin: 0;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.gallery .shot img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-bottom: 1px solid var(--border);
+}
+.gallery .shot figcaption {
+  padding: 10px 14px;
+  color: var(--text-mute);
+  font-size: 13.5px;
+  line-height: 1.4;
+}
 
 /* --- Structural layout --------------------------------------------------- */
 
@@ -300,11 +336,68 @@ ${body}
 
 // --- Home page --------------------------------------------------------------
 
+const screenshots = [
+  {
+    src: "assets/screenshots/01-village-overview.png",
+    alt: "Village overview",
+    caption:
+      "The village seen from orbit: nine tool-mapped zones on a round island, agents clustered by the zone they are using, boats cruising the sea, minor islands on the horizon."
+  },
+  {
+    src: "assets/screenshots/02-island-detail.png",
+    alt: "Grass and flowers on the island",
+    caption:
+      "Close look at the grass cap: scattered grass tufts and flowers, signposts in front of each zone, a cluster of agents standing beside the Spawner."
+  },
+  {
+    src: "assets/screenshots/03-agents-at-office.png",
+    alt: "Agents at the Office zone",
+    caption:
+      "Agents at the Office. Each character has a name label; the latest action shows as a speech bubble, and hovering opens a tooltip."
+  },
+  {
+    src: "assets/screenshots/04-scene-panorama.png",
+    alt: "Panorama view",
+    caption:
+      "Wide-angle view across the water - clouds overhead, boats sailing past, villagers on the shoreline."
+  },
+  {
+    src: "assets/screenshots/05-underwater-view.png",
+    alt: "Underwater atmosphere",
+    caption:
+      "Dive the camera below the waterline and the scene swaps to an underwater atmosphere: blue-teal fog, hidden sky, sandy seabed with rocks and seagrass, fish drifting past."
+  },
+  {
+    src: "assets/screenshots/06-settings-hook-install.png",
+    alt: "Settings dialog with hook installer",
+    caption:
+      "Install / Uninstall the Claude Code hook non-destructively from the Settings dialog, with a diff preview. Session filter and ghost-retirement timer live here too."
+  },
+  {
+    src: "assets/screenshots/07-help-dialog.png",
+    alt: "In-app help dialog",
+    caption:
+      "Built-in Help covers camera / mouse / keyboard controls and a live zones table pulled from the source."
+  }
+];
+
+const screenshotsHtml = screenshots
+  .map(
+    (s) =>
+      `<figure class="shot"><img src="${s.src}" alt="${s.alt}" loading="lazy" /><figcaption>${s.caption}</figcaption></figure>`
+  )
+  .join("\n    ");
+
 const homeBody = `
   <section class="hero">
     <h1>claude-village</h1>
     <p class="tagline">A Mac desktop app that visualizes running Claude Code sessions as an animated Minecraft-style village. Each session is a tab. Each agent is a voxel character walking between themed zones based on the tool it is using right now - reading files in the library, writing code in the office, searching in the mine, running tests on the farm, committing in the nether portal, and so on.</p>
   </section>
+
+  <h2>Screenshots</h2>
+  <div class="gallery">
+    ${screenshotsHtml}
+  </div>
 
   <h2>Get going</h2>
   <div class="cards">
