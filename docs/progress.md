@@ -1,6 +1,6 @@
 # claude-village - implementation progress
 
-**Last updated:** 2026-04-20
+**Last updated:** 2026-04-21
 
 ## Status legend
 - `[ ]` pending / available to claim
@@ -90,11 +90,23 @@
 
 ## Post-v1 upgrade path (not part of the 17-task plan)
 
-See design doc Section 14 (Asset tiers). Ships on Tier 1 (programmatic cubes). After M5, queue follow-up mini-plans for:
+See design doc Section 14 (Asset tiers). Shipped on Tier 1 (programmatic cubes); Tier 2 pipeline is now live.
 
-- **Tier 2 asset swap** - import Kenney.nl CC0 voxel packs, replace box characters and zone props with GLB models loaded via `useGLTF`.
+- ~~**Tier 2 asset swap** - import Kenney.nl CC0 voxel packs, replace box characters and zone props with GLB models loaded via `useGLTF`.~~ **Pipeline landed** in `feat/assets-tier2-kenney` (commit `3b75ce1`). `useGLTF` + `Suspense` + `GltfErrorBoundary` wired with programmatic-cube fallback on load failure; 11 placeholder GLBs (~85 KB total) ship today via `src/renderer/assets/models/`. Real Kenney CC0 packs (Mini Characters 1.1, Castle Kit, Nature Kit, Dungeon Pack, Conquer, Platformer Kit) are a filename-matched drop-in with zero code change, tracked as follow-up "drop real Kenney GLBs into place".
 - **Tier 3 custom assets** - author bespoke props in MagicaVoxel (tavern, Nether portal, signposts).
 - **Tier 4 AI-generated props** - use Meshy.ai / Luma / Rodin for one-off decorative items, keep prompts in sidecar files.
+
+## Post-v1 maintenance pass (2026-04-21)
+
+Five parallel worktrees, each orchestrated by an isolated agent, then squash-merged to main in a single cleanup pass to keep the history readable.
+
+- **Agent movement bug fix** (`bfad47f` - was `fix/agent-movement`). Characters were frozen in Tavern because `<group position={...}>` re-applied `currentWorld` on every store patch, snapping them back each tool event. Moved initial-position capture into a `useRef` set once on mount; `useFrame` now owns the transform. Zone positions and the walkable grid are memoized in `VillageScene`. Added lightweight per-frame separation steering (`src/renderer/village/separation.ts`, radius 0.8, strength 3, max 2 u/s) so characters no longer pass through each other. Store now advances `agent.currentZone` in lockstep with `targetZone` so zone-focus and tooltips stay coherent. Mayor fixed along the way (shared code path).
+- **Session status "ended" while active fix** (`1c68c75` - was `fix/session-status-active`). Two bugs: the store never flipped `status` back to `active` when activity arrived after a `session-end`, and the tab body rendered raw `s.status` instead of the derived live status the sidebar uses. Store now reopens on any activity event; `deriveStatus` hoisted into `src/renderer/sessionStatus.ts` and used in both the sidebar and the tab body.
+- **ESLint 9 flat-config migration** (`d0c4fe0` - was `chore/eslint-flat-config`). `.eslintrc.cjs` removed, `eslint.config.js` (ESM flat) added. Legacy plugins bridged via `@eslint/eslintrc` `FlatCompat`; `eslint-plugin-react` uses its native flat export. `ESLINT_USE_FLAT_CONFIG=false` and `--ext` dropped from scripts.
+- **Install / Uninstall hook from Settings** (`34a67b4` - was `feat/hook-autoinstall`). New `src/main/hook-installer.ts` with pure `computeMerged` / `computeRemoved` helpers + atomic temp-file-rename filesystem wrappers. Three new IPC channels (`hooks:read`, `hooks:install`, `hooks:uninstall`). Settings screen now shows Install / Uninstall buttons above the manual snippet, with a side-by-side before/after diff modal and a post-action banner. User entries are preserved; ours are identified by port `49251`. 16 new unit tests.
+- **Tier 2 voxel assets** (`3b75ce1` - was `feat/assets-tier2-kenney`). See above in the upgrade-path section.
+
+All five streams passed `pnpm lint && pnpm typecheck && pnpm test && pnpm build` on their branches, and again on `main` after each squash merge. Post-merge test count: **79 unit** + **3 e2e**.
 
 ## How to update this file
 

@@ -96,6 +96,12 @@ Open settings from the gear icon in the top-right corner of the window.
 
 - **Data source toggles** - JSONL tail is on by default. Toggle hooks on if you have the
   optional Claude Code hook server set up (it gives richer tool boundary events).
+- **Install / Uninstall hook** - two buttons above the manual JSON snippet. `Install`
+  merges the claude-village hook entries into `~/.claude/settings.json` (or
+  `$CLAUDE_CONFIG_DIR/settings.json`) after showing a side-by-side before/after diff;
+  existing user hooks are preserved. `Uninstall` removes only the entries that target
+  `127.0.0.1:49251`, leaving any user hooks intact. Both are idempotent. The manual
+  snippet stays for users who prefer hand-merging.
 - **Ghost retirement timer** - how long a villager can stay idle before it becomes a
   ghost, and how long a ghost lingers before it despawns.
 
