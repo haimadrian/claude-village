@@ -69,7 +69,11 @@ export function Zone({ meta, position }: ZoneProps) {
  * plank faces the island centre.
  *
  * Preserves the `zone-signpost` tooltipKind so TooltipLayer hit-testing
- * behaves exactly as before.
+ * behaves exactly as before. Each sub-mesh also carries its own
+ * `zone-signpost` userData so a direct raycast hit on the thin post or
+ * plank always resolves, even if the parent chain walk short-circuits.
+ * A large invisible hitbox wraps the plank to make the thin label easy
+ * to hover.
  */
 function Signpost({
   meta,
@@ -80,36 +84,58 @@ function Signpost({
   position: [number, number, number];
   yaw: number;
 }) {
+  const signpostUserData = { tooltipKind: "zone-signpost", zoneId: meta.id };
   return (
-    <group
-      position={position}
-      rotation={[0, yaw, 0]}
-      userData={{ tooltipKind: "zone-signpost", zoneId: meta.id }}
-    >
+    <group position={position} rotation={[0, yaw, 0]} userData={signpostUserData}>
       {/* Post. */}
-      <mesh position={[0, 1, 0]}>
+      <mesh position={[0, 1, 0]} userData={signpostUserData}>
         <boxGeometry args={[0.15, 2, 0.15]} />
-        <meshStandardMaterial color="#8b5a2b" />
+        <meshStandardMaterial color="#6b4423" />
       </mesh>
-      {/* Plank. */}
-      <mesh position={[0, 1.7, 0.05]}>
-        <boxGeometry args={[1.4, 0.45, 0.08]} />
-        <meshStandardMaterial color="#c19a6b" />
+      {/* Plank: lighter pine so dark text reads clearly. */}
+      <mesh position={[0, 1.75, 0.05]} userData={signpostUserData}>
+        <boxGeometry args={[1.6, 0.55, 0.08]} />
+        <meshStandardMaterial color="#e8cfa0" />
       </mesh>
-      {/* Label on the front of the plank, nudged slightly forward so it
-          doesn't z-fight with the plank mesh. */}
-      <Text
-        position={[0, 1.7, 0.1]}
-        fontSize={0.22}
-        color="#2a1a0a"
-        anchorX="center"
-        anchorY="middle"
-        maxWidth={1.3}
-        outlineWidth={0.01}
-        outlineColor="#f3e2c2"
-      >
-        {meta.name}
-      </Text>
+      {/* Front-facing label. Larger, high-contrast (near-black) with a
+          thin light outline so it reads against any lighting. Wrapped in
+          a group that carries userData because drei's internal SDFText
+          mesh has its own userData. */}
+      <group position={[0, 1.75, 0.11]} userData={signpostUserData}>
+        <Text
+          fontSize={0.28}
+          color="#1a0f05"
+          anchorX="center"
+          anchorY="middle"
+          maxWidth={1.5}
+          outlineWidth={0.015}
+          outlineColor="#ffffff"
+          userData={signpostUserData}
+        >
+          {meta.name}
+        </Text>
+      </group>
+      {/* Back-facing label so the zone name is legible from both sides. */}
+      <group position={[0, 1.75, -0.01]} rotation={[0, Math.PI, 0]} userData={signpostUserData}>
+        <Text
+          fontSize={0.28}
+          color="#1a0f05"
+          anchorX="center"
+          anchorY="middle"
+          maxWidth={1.5}
+          outlineWidth={0.015}
+          outlineColor="#ffffff"
+          userData={signpostUserData}
+        >
+          {meta.name}
+        </Text>
+      </group>
+      {/* Invisible generous hitbox around the plank so thin geometry and
+          SDF text never cause the hover raycast to miss. */}
+      <mesh position={[0, 1.75, 0.05]} visible={false} userData={signpostUserData}>
+        <boxGeometry args={[1.9, 0.8, 0.4]} />
+        <meshBasicMaterial transparent opacity={0} />
+      </mesh>
     </group>
   );
 }
@@ -117,12 +143,21 @@ function Signpost({
 /**
  * Loads the zone GLB and clones its scene so every zone is an independent
  * Object3D even when multiple zones share the same source model in the GLTF
- * cache.
+ * cache. Stamps `zone-ground` userData on every descendant mesh so any
+ * raycast hit (roof, walls, decorations) resolves to the same tooltip.
  */
 function ZoneBuilding({ meta }: { meta: ZoneMeta }) {
   const url = zoneModel(meta.id);
   const gltf = useGLTF(url) as unknown as { scene: THREE.Group };
-  const cloned = useMemo(() => gltf.scene.clone(true), [gltf]);
+  const cloned = useMemo(() => {
+    const scene = gltf.scene.clone(true);
+    const ud = { tooltipKind: "zone-ground", zoneId: meta.id };
+    scene.userData = { ...scene.userData, ...ud };
+    scene.traverse((child) => {
+      child.userData = { ...child.userData, ...ud };
+    });
+    return scene;
+  }, [gltf, meta.id]);
   return <primitive object={cloned} userData={{ tooltipKind: "zone-ground", zoneId: meta.id }} />;
 }
 
