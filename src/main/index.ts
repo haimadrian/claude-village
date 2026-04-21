@@ -141,7 +141,11 @@ app.on("before-quit", async () => {
 });
 
 app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") app.quit();
+  // Deviation from the Electron macOS default (keep running on darwin so the
+  // dock icon can reopen a window): claude-village has no useful background
+  // behaviour without a window, so closing the window should terminate the
+  // process. `before-quit` above stops the watcher and hook server cleanly.
+  app.quit();
 });
 
 app.on("activate", () => {
