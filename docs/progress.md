@@ -108,6 +108,16 @@ Five parallel worktrees, each orchestrated by an isolated agent, then squash-mer
 
 All five streams passed `pnpm lint && pnpm typecheck && pnpm test && pnpm build` on their branches, and again on `main` after each squash merge. Post-merge test count: **79 unit** + **3 e2e**.
 
+### Follow-up waves (same day)
+
+Three additional parallel waves after the first batch, also merged as clean squash commits:
+
+- **Speech-bubble empty / arrow-only fix** (`cbd9d75` - was `fix/bubble-keep-last-action`). Classifier trims excerpts and falls back to `Done` / `User` / `Thinking` when the summary collapses to an empty string (the previous `?? "Done"` never fired because `""` is not nullish). Exported `isTrivialSummary` guards `recentActions.push` so arrow-only or punctuation-only results (`->`, `...`) never overwrite the last meaningful bubble. Timeline still shows arrows. 4 new classifier tests + 2 new session-store tests.
+- **Scene polish** (`832199d` - was `feat/scene-polish-world`). Drei `<Sky>` + `<Cloud>` replace the flat Canvas background, a 200x200 transparent-blue water plane surrounds a round 48-segment grass island. Zone ring `RADIUS` 8 -> 13, walkable grid 32 -> 48. Floating HTML emoji replaced with primitive-geometry 3D icons per zone (books, pickaxe, pine, mug, flame, sparkle, wheat, signpost, office block) in a new `ZoneIcon3D.tsx`. Brown signpost column replaced by an actual post + plank + drei `<Text>` zone-name, oriented toward the island centre. Characters target a per-(zone, agent) hashed slot outside the zone footprint via a new `slots.ts` helper so multiple agents at the same zone never overlap with the building. 10 new slot tests, all e2e still green.
+- **Character face, hair, arms** (`a72b001` - was `feat/character-face-hair-hands`). Minecraft-style decorations rendered as a shared `CharacterDecorations` overlay on both the Tier 1 `FallbackCharacter` and the Tier 2 cloned GLB: two dark eye boxes and a mouth on the head front face, a hair slab plus front fringe on top (per-agent colour from a 5-entry palette hashed with djb2 in a new `appearance.ts`), and two skin-coloured arm boxes hanging from the torso. Ghost opacity propagates to every new material. Placeholder GLBs untouched; real Kenney packs already ship their own faces/hair/arms, so no code change needed when they drop in. 4 new appearance tests.
+
+Final post-merge test count: **101 unit** + **3 e2e**. Main log is still linear: 9 squash commits + 1 docs commit since `b7f9edd`.
+
 ## How to update this file
 
 When an agent starts a task:
