@@ -129,6 +129,15 @@ Four more parallel worktrees, all merged to main as independent squash commits:
 
 Post-wave-4 totals: **118 unit** + **3 e2e**, lint / typecheck / build all green. Linear log, 15 squash + docs commits since `b7f9edd`.
 
+### 2026-04-21 wave 5: subagent rendering + walk speed
+
+- **Walk speed** (`37fd154`). Characters used to walk at 3 u/s so a cross-ring traversal took around 8 seconds - usually longer than the gap between tool events, so the character almost never reached its destination before being redirected. Bumped `SPEED` to 8 u/s in `Character.tsx`; separation max-step stays at 2 u/s so collision avoidance is still gentle.
+- **Subagent characters render + e2e** (`10cce7d`). Only the Mayor was ever visible because `event-normalizer.ts` hard-coded `agentId: sessionId, kind: "main"` for every event, and `hook-server.ts` only tagged subagents when the payload carried a non-existent `agent_id` field. Fixed by detecting `Task` / `Agent` tool dispatches in both ingress paths and emitting synthetic `subagent-start` / `subagent-end` events with `agentId = <sessionId>:<tool_use_id>`. `normalizeJsonlEvent` grew a plural sibling `normalizeJsonlEvents` returning `AgentEvent[]`; `SessionWatcher` consumes the array API. New `tests/e2e/multi-agent.spec.ts` launches Electron with `CV_HOOK_PORT=49333` and an empty `CLAUDE_CONFIG_DIR`, POSTs a full `SessionStart -> Read -> Task -> PostToolUse -> Stop` flow into the hook server, and asserts both the mayor and the subagent render via drei `<Html>` label title attributes (Mayor carries the shield prefix, subagents do not). 8 new unit tests (5 normalizer, 3 hook-server) cover Task pre/post pairing, stable id linkage, fallback counter, non-Task no-synthesis, and the nested-subagent guard.
+
+Known follow-up (not shipped in wave 5): Claude Code writes the subagent's own transcript to a SEPARATE JSONL file. The synthetic subagent character currently shows up and expires on the parent's `Task` pre/post pair but its `recentActions` stays empty. Wiring the child transcript back into the parent session needs a file correlation layer and was deliberately deferred.
+
+Post-wave-5 totals: **126 unit** + **4 e2e**. Linear log, 17 squash + docs commits since `b7f9edd`.
+
 ## How to update this file
 
 When an agent starts a task:
