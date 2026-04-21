@@ -52,7 +52,12 @@ test.beforeAll(async () => {
 
   app = await electron.launch({
     args: ["out/main/index.js"],
-    env: { ...process.env, CLAUDE_CONFIG_DIR: fakeClaude, CV_HOOK_PORT: "0" }
+    env: {
+      ...process.env,
+      CLAUDE_CONFIG_DIR: fakeClaude,
+      CV_HOOK_PORT: "0",
+      CV_HIDDEN_WINDOW: "1"
+    }
   });
 });
 
