@@ -167,6 +167,10 @@ Six small commits that landed one after another as the user play-tested the scen
 
 Post-wave-8 totals: **183 unit** + **5 e2e**, lint / typecheck / build all green. Main log: 31 squash + docs commits since `b7f9edd`.
 
+### 2026-04-21 wave 9: ghost retirement timer wired
+
+- **Ghost retirement timer** (`feat/wire-ghost-retirement`). The Settings input was local React state that nothing else read. `IDLE_BEFORE_GHOST_MS` is now a mutable instance field on `SessionStore` with `setIdleBeforeGhostMs`; `expireGhosts` reads the live field so changes take effect on the next 30s tick. New `src/main/user-settings.ts` persists the user's choice to `{userData}/user-settings.json` via the same atomic temp-file + rename pattern the hook installer uses, with pure `parseUserSettings` / `mergeUserSettings` helpers for unit coverage. Two new IPC channels (`settings:read`, `settings:write`) validate `[1, 60]`, call `store.setIdleBeforeGhostMs`, then persist. SettingsScreen seeds the input from the read on mount, debounces writes at 400ms on change, and surfaces a "Saved" / error banner. Docs (`docs/usage.md`) now describe the actual single-knob shape (1h ghost TTL fixed).
+
 ## How to update this file
 
 When an agent starts a task:

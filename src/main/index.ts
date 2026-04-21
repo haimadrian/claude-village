@@ -6,6 +6,7 @@ import { HookServer } from "./hook-server";
 import { SessionStore } from "./session-store";
 import { wireIpc } from "./ipc-bridge";
 import { logger } from "./logger";
+import { readUserSettings } from "./user-settings";
 
 // Respect the same override Claude Code itself uses so power users with a
 // non-default config dir still see their sessions. Falls back to the
@@ -17,6 +18,10 @@ const watchRoot = process.env.CLAUDE_CONFIG_DIR
 const store = new SessionStore(path.join(app.getPath("userData"), "pinned.json"));
 const watcher = new SessionWatcher(watchRoot);
 const hookServer = new HookServer();
+// Persistent user prefs (currently just the ghost idle timer). Sits next to
+// pinned.json in the app's userData dir. Path is cached here so `createWindow`
+// and the IPC handlers share the exact same file.
+const userSettingsPath = path.join(app.getPath("userData"), "user-settings.json");
 
 // Holds the active bridge wiring so we can tear it down before re-wiring on
 // macOS dock-icon re-activation. Without this, the second `createWindow` call
@@ -62,7 +67,7 @@ async function createWindow(): Promise<void> {
   });
 
   bridge?.dispose();
-  bridge = wireIpc({ window: win, store, watcher, hookServer });
+  bridge = wireIpc({ window: win, store, watcher, hookServer, userSettingsPath });
   win.on("closed", () => {
     logger.info("main window closed");
     bridge?.dispose();
@@ -98,6 +103,23 @@ async function createWindow(): Promise<void> {
 
 app.whenReady().then(async () => {
   logger.info("app ready", { watchRoot, userData: app.getPath("userData") });
+  // Seed the live store from the user's persisted ghost-retirement timer.
+  // Missing / malformed file silently falls back to the default (see
+  // `readUserSettings`); a read failure must never block startup.
+  try {
+    const prefs = await readUserSettings(userSettingsPath);
+    store.setIdleBeforeGhostMs(prefs.idleBeforeGhostMinutes * 60_000);
+    logger.info("user-settings loaded", {
+      userSettingsPath,
+      idleBeforeGhostMinutes: prefs.idleBeforeGhostMinutes
+    });
+  } catch (err) {
+    const e = err instanceof Error ? err : new Error(String(err));
+    logger.warn("user-settings load failed; continuing with defaults", {
+      userSettingsPath,
+      message: e.message
+    });
+  }
   const template: Electron.MenuItemConstructorOptions[] = [
     {
       label: "claude-village",

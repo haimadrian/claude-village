@@ -461,6 +461,50 @@ describe("SessionStore", () => {
       expect(last.ghostExpiresAt).toBeUndefined();
     });
 
+    it("setIdleBeforeGhostMs tightens the threshold so an agent past the new window ghosts on the next tick", () => {
+      // Default is 3 minutes; shrink to 1 minute and verify an agent idle
+      // for 90 seconds (over the new threshold, under the old one) ghosts.
+      const t0 = Date.now();
+      store.apply(ev({ type: "session-start", timestamp: t0 - 90 * 1000 }));
+      store.apply(
+        ev({ type: "pre-tool-use", toolName: "Read", timestamp: t0 - 90 * 1000 })
+      );
+      const beforeTune = store.getSession("s1")?.agents.get("a1");
+      expect(beforeTune?.animation).not.toBe("ghost");
+      // At the default 3min threshold, 90s of silence must NOT ghost.
+      store.expireGhosts(t0);
+      expect(store.getSession("s1")?.agents.get("a1")?.animation).not.toBe("ghost");
+
+      // Now tune down; same `now`, same last-seen should flip.
+      store.setIdleBeforeGhostMs(60 * 1000);
+      store.expireGhosts(t0);
+      expect(store.getSession("s1")?.agents.get("a1")?.animation).toBe("ghost");
+    });
+
+    it("setIdleBeforeGhostMs keeps an agent within the new threshold alive", () => {
+      // Shrink threshold to 30 seconds, then use a 20-second idle window -
+      // the agent must still be non-ghost after the tick.
+      const t0 = Date.now();
+      store.apply(ev({ type: "session-start", timestamp: t0 - 20 * 1000 }));
+      store.apply(
+        ev({ type: "pre-tool-use", toolName: "Read", timestamp: t0 - 20 * 1000 })
+      );
+      store.setIdleBeforeGhostMs(30 * 1000);
+      store.expireGhosts(t0);
+      expect(store.getSession("s1")?.agents.get("a1")?.animation).not.toBe("ghost");
+    });
+
+    it("setIdleBeforeGhostMs clamps non-finite / non-positive values back to the default", () => {
+      // Default is 3 minutes (180_000 ms). A bogus value must not disable
+      // retirement entirely; it must reset to the default instead.
+      store.setIdleBeforeGhostMs(0);
+      expect(store.getIdleBeforeGhostMs()).toBe(3 * 60 * 1000);
+      store.setIdleBeforeGhostMs(Number.NaN);
+      expect(store.getIdleBeforeGhostMs()).toBe(3 * 60 * 1000);
+      store.setIdleBeforeGhostMs(-5);
+      expect(store.getIdleBeforeGhostMs()).toBe(3 * 60 * 1000);
+    });
+
     it("session-end bumps mayor lastSeenAt so idle-to-ghost starts from Stop, not last tool", () => {
       const tStart = Date.now() - 10 * 60 * 1000;
       const tTool = tStart + 1000;

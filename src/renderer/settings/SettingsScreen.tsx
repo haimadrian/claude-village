@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   loadFilter,
   saveFilter,
@@ -6,6 +6,22 @@ import {
   type SessionAgeFilter
 } from "./sessionFilter";
 import type { HookReadOk } from "../types/ipc-client";
+
+const GHOST_MINUTES_MIN = 1;
+const GHOST_MINUTES_MAX = 60;
+const GHOST_MINUTES_DEFAULT = 3;
+// Debounce window for persisting the ghost-retirement timer: long enough that
+// holding a key or clicking the spinner a few times collapses to one IPC
+// call, short enough that the user perceives the save as "immediate".
+const GHOST_WRITE_DEBOUNCE_MS = 400;
+// How long the "Saved" confirmation stays on screen after a successful write.
+const GHOST_SAVED_BANNER_MS = 2000;
+
+type GhostSaveStatus =
+  | { kind: "idle" }
+  | { kind: "saving" }
+  | { kind: "saved" }
+  | { kind: "error"; message: string };
 
 const HOOK_SNIPPET: string = JSON.stringify(
   {
@@ -65,13 +81,88 @@ const HOOK_SNIPPET: string = JSON.stringify(
 type HookBanner = { kind: "success" | "error"; message: string } | null;
 
 export function SettingsScreen({ onClose }: { onClose: () => void }): JSX.Element {
-  const [ghostMinutes, setGhostMinutes] = useState(3);
+  const [ghostMinutes, setGhostMinutes] = useState<number>(GHOST_MINUTES_DEFAULT);
+  const [ghostSaveStatus, setGhostSaveStatus] = useState<GhostSaveStatus>({ kind: "idle" });
+  const ghostWriteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const ghostSavedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Value currently queued for persistence by the debounced timer. We keep
+  // it in a ref so the timer callback always sees the latest input without
+  // needing to re-register on every keystroke.
+  const pendingGhostMinutesRef = useRef<number>(GHOST_MINUTES_DEFAULT);
   const [copied, setCopied] = useState(false);
   const [ageFilter, setAgeFilter] = useState<SessionAgeFilter>(() => loadFilter());
   const [hookPreview, setHookPreview] = useState<HookReadOk | null>(null);
   const [hookAction, setHookAction] = useState<"install" | "uninstall" | null>(null);
   const [hookBusy, setHookBusy] = useState(false);
   const [hookBanner, setHookBanner] = useState<HookBanner>(null);
+
+  // Seed the input from the main-process persisted value on mount. Any
+  // failure (IPC not wired up, file unreadable, etc.) silently falls back
+  // to the default: a broken read must not strand the user with a frozen
+  // input.
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await window.claudeVillage.readUserSettings();
+        if (cancelled) return;
+        if (res.ok) {
+          const clamped = Math.max(
+            GHOST_MINUTES_MIN,
+            Math.min(GHOST_MINUTES_MAX, res.idleBeforeGhostMinutes)
+          );
+          setGhostMinutes(clamped);
+          pendingGhostMinutesRef.current = clamped;
+        }
+      } catch {
+        // Ignore; default already rendered.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Cancel any pending debounce / saved-banner timer on unmount so we don't
+  // call setState on an unmounted dialog.
+  useEffect(() => {
+    return () => {
+      if (ghostWriteTimerRef.current !== null) clearTimeout(ghostWriteTimerRef.current);
+      if (ghostSavedTimerRef.current !== null) clearTimeout(ghostSavedTimerRef.current);
+    };
+  }, []);
+
+  const scheduleGhostWrite = (value: number): void => {
+    pendingGhostMinutesRef.current = value;
+    if (ghostWriteTimerRef.current !== null) {
+      clearTimeout(ghostWriteTimerRef.current);
+    }
+    ghostWriteTimerRef.current = setTimeout(() => {
+      ghostWriteTimerRef.current = null;
+      const next = pendingGhostMinutesRef.current;
+      setGhostSaveStatus({ kind: "saving" });
+      void (async () => {
+        try {
+          const res = await window.claudeVillage.writeUserSettings({
+            idleBeforeGhostMinutes: next
+          });
+          if (res.ok) {
+            setGhostSaveStatus({ kind: "saved" });
+            if (ghostSavedTimerRef.current !== null) clearTimeout(ghostSavedTimerRef.current);
+            ghostSavedTimerRef.current = setTimeout(() => {
+              setGhostSaveStatus({ kind: "idle" });
+              ghostSavedTimerRef.current = null;
+            }, GHOST_SAVED_BANNER_MS);
+          } else {
+            setGhostSaveStatus({ kind: "error", message: res.error });
+          }
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          setGhostSaveStatus({ kind: "error", message });
+        }
+      })();
+    }, GHOST_WRITE_DEBOUNCE_MS);
+  };
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent): void => {
@@ -344,22 +435,51 @@ export function SettingsScreen({ onClose }: { onClose: () => void }): JSX.Elemen
         </section>
         <section style={{ marginBottom: 16 }}>
           <h3 style={{ fontSize: 14, marginBottom: 4 }}>Ghost retirement</h3>
-          <label style={{ fontSize: 13 }}>
+          <label style={{ fontSize: 13, display: "flex", alignItems: "center", gap: 8 }}>
             Timer (minutes):{" "}
             <input
               type="number"
               value={ghostMinutes}
-              min={1}
-              max={60}
+              min={GHOST_MINUTES_MIN}
+              max={GHOST_MINUTES_MAX}
+              step={1}
               onChange={(e) => {
-                const next = Number(e.target.value);
-                if (Number.isFinite(next)) {
-                  setGhostMinutes(next);
-                }
+                const raw = Number(e.target.value);
+                if (!Number.isFinite(raw)) return;
+                // Update the input immediately so typing feels responsive,
+                // but clamp what we persist to the valid range. Non-integer
+                // typed values (from keystrokes mid-edit) get rounded at
+                // write time so the main process never stores fractions.
+                const rounded = Math.round(raw);
+                const clamped = Math.max(GHOST_MINUTES_MIN, Math.min(GHOST_MINUTES_MAX, rounded));
+                setGhostMinutes(clamped);
+                scheduleGhostWrite(clamped);
               }}
-              style={{ width: 50 }}
+              style={{ width: 60 }}
+              aria-label="Ghost retirement timer minutes"
             />
+            {ghostSaveStatus.kind === "saved" && (
+              <span style={{ fontSize: 12, color: "#8dff8d" }} role="status">
+                Saved
+              </span>
+            )}
           </label>
+          <div style={{ fontSize: 12, marginTop: 6, opacity: 0.75 }}>
+            How long a villager can stay idle before becoming a ghost. Ghosts then hang around for
+            one hour before despawning.
+          </div>
+          {ghostSaveStatus.kind === "error" && (
+            <div
+              role="alert"
+              style={{
+                fontSize: 12,
+                marginTop: 6,
+                color: "#ff9b9b"
+              }}
+            >
+              Failed to save: {ghostSaveStatus.message}
+            </div>
+          )}
         </section>
         <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
           <button onClick={onClose}>Close</button>

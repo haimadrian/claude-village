@@ -5,6 +5,13 @@ import type { HookServer } from "./hook-server";
 import type { AgentEvent, AgentState, SessionState } from "../shared/types";
 import { logger } from "./logger";
 import { installHook, readSettings, uninstallHook } from "./hook-installer";
+import {
+  MAX_IDLE_BEFORE_GHOST_MINUTES,
+  MIN_IDLE_BEFORE_GHOST_MINUTES,
+  readUserSettings,
+  writeUserSettingsAtomic,
+  type UserSettings
+} from "./user-settings";
 
 /**
  * Serializable projection of a `SessionState` for IPC transit. The live
@@ -35,8 +42,14 @@ export function wireIpc(opts: {
   store: SessionStore;
   watcher: SessionWatcher;
   hookServer: HookServer;
+  /**
+   * Path to the persistent user-settings JSON file. Injected so tests can
+   * point to a tmp path and the main process can point to
+   * `{app userData}/user-settings.json`.
+   */
+  userSettingsPath: string;
 }): { dispose: () => void } {
-  const { window, store, watcher, hookServer } = opts;
+  const { window, store, watcher, hookServer, userSettingsPath } = opts;
   logger.info("IPC bridge wiring");
 
   const onWatcherEvent = (e: AgentEvent): void => store.apply(e);
@@ -102,6 +115,67 @@ export function wireIpc(opts: {
     }
   });
 
+  // User-settings IPC. Currently just the ghost-retirement idle timer, but
+  // kept as a generic "settings:read / settings:write" pair so future knobs
+  // can extend the same surface without adding new channels.
+  ipcMain.handle("settings:read", async () => {
+    try {
+      const settings = await readUserSettings(userSettingsPath);
+      return {
+        ok: true as const,
+        idleBeforeGhostMinutes: settings.idleBeforeGhostMinutes
+      };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      logger.error("settings:read failed", { message });
+      return { ok: false as const, error: message };
+    }
+  });
+  ipcMain.handle(
+    "settings:write",
+    async (_e, payload: { idleBeforeGhostMinutes?: unknown } | undefined) => {
+      try {
+        const raw = payload?.idleBeforeGhostMinutes;
+        // Validate in the main process regardless of renderer checks. An
+        // invalid value means "do not touch persisted state", which prevents
+        // a renderer bug from nuking the file.
+        if (
+          typeof raw !== "number" ||
+          !Number.isInteger(raw) ||
+          raw < MIN_IDLE_BEFORE_GHOST_MINUTES ||
+          raw > MAX_IDLE_BEFORE_GHOST_MINUTES
+        ) {
+          return {
+            ok: false as const,
+            error: `idleBeforeGhostMinutes must be an integer between ${MIN_IDLE_BEFORE_GHOST_MINUTES} and ${MAX_IDLE_BEFORE_GHOST_MINUTES}.`
+          };
+        }
+        const previous = await readUserSettings(userSettingsPath);
+        const next: UserSettings = { idleBeforeGhostMinutes: raw };
+        const changed = previous.idleBeforeGhostMinutes !== next.idleBeforeGhostMinutes;
+        // Always call setIdleBeforeGhostMs so the live store matches the
+        // persisted state even on first-run after a crash.
+        store.setIdleBeforeGhostMs(raw * 60_000);
+        if (changed) {
+          await writeUserSettingsAtomic(userSettingsPath, next);
+          logger.info("settings:write persisted", {
+            userSettingsPath,
+            idleBeforeGhostMinutes: raw
+          });
+        }
+        return {
+          ok: true as const,
+          changed,
+          next: { idleBeforeGhostMinutes: next.idleBeforeGhostMinutes }
+        };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        logger.error("settings:write failed", { message });
+        return { ok: false as const, error: message };
+      }
+    }
+  );
+
   // Two-stage retirement runs inside `store.expireGhosts`:
   // 1) idle -> ghost after 3 min of silence on an agent,
   // 2) ghost -> removed after 1 h.
@@ -126,6 +200,8 @@ export function wireIpc(opts: {
       ipcMain.removeHandler("hooks:read");
       ipcMain.removeHandler("hooks:install");
       ipcMain.removeHandler("hooks:uninstall");
+      ipcMain.removeHandler("settings:read");
+      ipcMain.removeHandler("settings:write");
     }
   };
 }

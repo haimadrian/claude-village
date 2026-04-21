@@ -47,6 +47,25 @@ export interface HookErr {
 export type HookReadResponse = HookReadOk | HookErr;
 export type HookMutationResponse = HookMutationOk | HookErr;
 
+export interface UserSettingsReadOk {
+  ok: true;
+  idleBeforeGhostMinutes: number;
+}
+
+export interface UserSettingsWriteOk {
+  ok: true;
+  changed: boolean;
+  next: { idleBeforeGhostMinutes: number };
+}
+
+export interface UserSettingsErr {
+  ok: false;
+  error: string;
+}
+
+export type UserSettingsReadResponse = UserSettingsReadOk | UserSettingsErr;
+export type UserSettingsWriteResponse = UserSettingsWriteOk | UserSettingsErr;
+
 export interface ClaudeVillageAPI {
   listSessions: () => Promise<SessionWire[]>;
   getSession: (id: string) => Promise<SessionWire | null>;
@@ -57,6 +76,10 @@ export interface ClaudeVillageAPI {
   readHooks: () => Promise<HookReadResponse>;
   installHooks: () => Promise<HookMutationResponse>;
   uninstallHooks: () => Promise<HookMutationResponse>;
+  readUserSettings: () => Promise<UserSettingsReadResponse>;
+  writeUserSettings: (payload: {
+    idleBeforeGhostMinutes: number;
+  }) => Promise<UserSettingsWriteResponse>;
 }
 
 declare global {

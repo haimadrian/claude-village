@@ -17,5 +17,8 @@ contextBridge.exposeInMainWorld("claudeVillage", {
   },
   readHooks: () => ipcRenderer.invoke("hooks:read"),
   installHooks: () => ipcRenderer.invoke("hooks:install"),
-  uninstallHooks: () => ipcRenderer.invoke("hooks:uninstall")
+  uninstallHooks: () => ipcRenderer.invoke("hooks:uninstall"),
+  readUserSettings: () => ipcRenderer.invoke("settings:read"),
+  writeUserSettings: (payload: { idleBeforeGhostMinutes: number }) =>
+    ipcRenderer.invoke("settings:write", payload)
 });

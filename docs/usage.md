@@ -130,8 +130,10 @@ Open settings from the gear icon in the sidebar footer.
   existing user hooks are preserved. `Uninstall` removes only the entries that target
   `127.0.0.1:49251`, leaving any user hooks intact. Both are idempotent. The manual
   snippet stays for users who prefer hand-merging.
-- **Ghost retirement timer** - how long a villager can stay idle before it becomes a
-  ghost, and how long a ghost lingers before it despawns.
+- **Ghost retirement timer (minutes)** - how long a villager can stay idle before it
+  becomes a ghost. Ghosts then hang around for an hour before despawning. Valid range
+  is 1 to 60 minutes; the choice is persisted to `{userData}/user-settings.json` and
+  applied on the next 30-second retirement tick. The 1-hour ghost TTL is fixed.
 
 About is no longer nested inside Settings; use the dedicated About icon in the
 sidebar footer instead.

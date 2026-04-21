@@ -6,12 +6,17 @@ import { logger } from "./logger";
 import type { AgentEvent, SessionState, AgentState, TimelineLine } from "../shared/types";
 
 /**
- * Idle timer: once an agent has received no events (tool use, message, or
- * session lifecycle) for this long, the next `expireGhosts` tick flips it to
- * a ghost. Kept tight (3 minutes) because the scene feels abandoned well
- * before the ghost TTL below kicks in.
+ * Idle timer default: once an agent has received no events (tool use,
+ * message, or session lifecycle) for this long, the next `expireGhosts` tick
+ * flips it to a ghost. Kept tight (3 minutes) because the scene feels
+ * abandoned well before the ghost TTL below kicks in.
+ *
+ * Exposed as a per-instance field (see `SessionStore.setIdleBeforeGhostMs`)
+ * because the Settings UI lets the user tune it at runtime and persist the
+ * choice to `{app userData}/user-settings.json`. The constant here is only
+ * the initial value a fresh store starts with.
  */
-const IDLE_BEFORE_GHOST_MS = 3 * 60 * 1000;
+export const DEFAULT_IDLE_BEFORE_GHOST_MS = 3 * 60 * 1000;
 /**
  * Ghost TTL: how long a ghost lingers in the scene (fading out) before being
  * removed entirely. One hour gives users time to see "oh, that session is
@@ -46,11 +51,34 @@ export class SessionStore extends EventEmitter {
   private sessions = new Map<string, SessionState>();
   private pinnedIds = new Set<string>();
   private readonly pinnedPath: string;
+  // Mutable so the Settings UI can retune it at runtime via
+  // `setIdleBeforeGhostMs`. `expireGhosts` reads this field directly so a
+  // change takes effect on the very next 30s tick.
+  private idleBeforeGhostMs: number = DEFAULT_IDLE_BEFORE_GHOST_MS;
 
   constructor(pinnedPath: string) {
     super();
     this.pinnedPath = pinnedPath === ":memory:" ? "" : pinnedPath;
     this.loadPinned();
+  }
+
+  /**
+   * Update the idle-to-ghost threshold (in milliseconds). Silently clamps
+   * non-positive or non-finite values to the default so a bad caller cannot
+   * disable retirement entirely. The Settings IPC validates its input in
+   * minutes before converting, but this guard keeps the store robust if any
+   * other caller passes through.
+   */
+  setIdleBeforeGhostMs(ms: number): void {
+    if (!Number.isFinite(ms) || ms <= 0) {
+      this.idleBeforeGhostMs = DEFAULT_IDLE_BEFORE_GHOST_MS;
+      return;
+    }
+    this.idleBeforeGhostMs = ms;
+  }
+
+  getIdleBeforeGhostMs(): number {
+    return this.idleBeforeGhostMs;
   }
 
   listSessions(): SessionState[] {
@@ -319,7 +347,7 @@ export class SessionStore extends EventEmitter {
           }
           continue;
         }
-        if (agent.lastSeenAt !== undefined && now - agent.lastSeenAt > IDLE_BEFORE_GHOST_MS) {
+        if (agent.lastSeenAt !== undefined && now - agent.lastSeenAt > this.idleBeforeGhostMs) {
           agent.animation = "ghost";
           agent.targetZone = "tavern";
           agent.ghostExpiresAt = now + GHOST_TTL_MS;
