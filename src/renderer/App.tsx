@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { SessionProvider, useSessions } from "./context/SessionContext";
 import { VillageScene } from "./village/VillageScene";
 import { TimelineStrip } from "./village/TimelineStrip";
 import { BubbleDrawer } from "./village/BubbleDrawer";
 import { SettingsScreen } from "./settings/SettingsScreen";
 import { AboutModal } from "./settings/AboutModal";
+import { HelpModal } from "./settings/HelpModal";
 import {
   FILTER_CHANGED_EVENT,
   filterMs,
@@ -20,6 +21,8 @@ html, body { margin: 0; height: 100%; overflow: hidden; }
 #root { height: 100%; overflow: hidden; }
 .cv-no-scrollbar::-webkit-scrollbar { display: none; }
 @keyframes cv-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.cv-footer-icon-btn:hover { background: #17241a !important; }
+.cv-footer-icon-btn:focus-visible { outline: 2px solid #6c9; outline-offset: 2px; }
 `;
 
 export default function App(): JSX.Element {
@@ -43,6 +46,7 @@ function Shell(): JSX.Element {
   } = useSessions();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   const [ageFilter, setAgeFilter] = useState<SessionAgeFilter>(() => loadFilter());
   const [refreshing, setRefreshing] = useState(false);
 
@@ -148,7 +152,7 @@ function Shell(): JSX.Element {
                 animation: refreshing ? "cv-spin 600ms linear" : "none"
               }}
             >
-              {"\u21bb"}
+              {"↻"}
             </span>
           </button>
         </div>
@@ -172,7 +176,7 @@ function Shell(): JSX.Element {
             // useless to humans. The full sessionId stays on the button's
             // `title` attribute for hover-to-copy instead.
             const label = s.title ?? "New session";
-            const truncated = label.length > 28 ? label.slice(0, 27) + "\u2026" : label;
+            const truncated = label.length > 28 ? label.slice(0, 27) + "…" : label;
             return (
               <li key={s.sessionId} style={{ marginBottom: 4 }}>
                 <button
@@ -193,41 +197,37 @@ function Shell(): JSX.Element {
             );
           })}
         </ul>
-        <button
-          onClick={() => setSettingsOpen(true)}
-          title="Settings"
-          aria-label="Open settings"
+        <div
           style={{
             flexShrink: 0,
             marginTop: 8,
             paddingTop: 8,
             borderTop: "1px solid #2a3",
             display: "flex",
-            alignItems: "center",
             gap: 8,
-            width: "100%",
-            textAlign: "left",
-            background: "transparent",
-            color: "#dde",
-            borderLeft: "none",
-            borderRight: "none",
-            borderBottom: "none",
-            borderRadius: 0,
-            padding: "10px 10px 4px",
-            cursor: "pointer",
-            fontSize: 14,
-            fontFamily: "inherit"
-          }}
-          onMouseEnter={(e) => {
-            (e.currentTarget as HTMLButtonElement).style.background = "#17241a";
-          }}
-          onMouseLeave={(e) => {
-            (e.currentTarget as HTMLButtonElement).style.background = "transparent";
+            justifyContent: "flex-start",
+            alignItems: "center"
           }}
         >
-          <span aria-hidden="true">{"\u2699"}</span>
-          <span>Settings</span>
-        </button>
+          <FooterIconButton
+            title="Settings"
+            ariaLabel="Open settings"
+            glyph={"⚙"}
+            onClick={() => setSettingsOpen(true)}
+          />
+          <FooterIconButton
+            title="Help"
+            ariaLabel="Open help"
+            glyph={"?"}
+            onClick={() => setHelpOpen(true)}
+          />
+          <FooterIconButton
+            title="About"
+            ariaLabel="Open about"
+            glyph={"ⓘ"}
+            onClick={() => setAboutOpen(true)}
+          />
+        </div>
       </aside>
       <main
         style={{
@@ -263,7 +263,7 @@ function Shell(): JSX.Element {
             // raw sessionId goes on the button's `title=` attribute so
             // hovering still shows the UUID for debugging.
             const fullLabel = s?.title ?? "New session";
-            const tabLabel = fullLabel.length > 14 ? fullLabel.slice(0, 14) + "\u2026" : fullLabel;
+            const tabLabel = fullLabel.length > 14 ? fullLabel.slice(0, 14) + "…" : fullLabel;
             return (
               <div
                 key={id}
@@ -285,10 +285,10 @@ function Shell(): JSX.Element {
                   {tabLabel}
                 </button>
                 <button onClick={() => togglePin(id)} title="pin">
-                  {s?.pinned ? "📌" : "📍"}
+                  {s?.pinned ? "\u{1F4CC}" : "\u{1F4CD}"}
                 </button>
                 <button onClick={() => closeTab(id)} title="close">
-                  ✕
+                  {"✕"}
                 </button>
               </div>
             );
@@ -311,8 +311,52 @@ function Shell(): JSX.Element {
         </section>
       </main>
       {settingsOpen && <SettingsScreen onClose={() => setSettingsOpen(false)} />}
+      {helpOpen && <HelpModal onClose={() => setHelpOpen(false)} />}
       {aboutOpen && <AboutModal onClose={() => setAboutOpen(false)} />}
     </div>
+  );
+}
+
+// Compact icon-only footer button. Hover and focus styles live in the global
+// stylesheet so the hover background persists while the click finishes.
+function FooterIconButton({
+  title,
+  ariaLabel,
+  glyph,
+  onClick
+}: {
+  title: string;
+  ariaLabel: string;
+  glyph: string;
+  onClick: () => void;
+}): JSX.Element {
+  const style: CSSProperties = {
+    width: 36,
+    height: 36,
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    background: "transparent",
+    color: "#dde",
+    border: "1px solid #2a3",
+    borderRadius: 4,
+    cursor: "pointer",
+    fontSize: 18,
+    lineHeight: 1,
+    padding: 0,
+    fontFamily: "inherit"
+  };
+  return (
+    <button
+      type="button"
+      className="cv-footer-icon-btn"
+      onClick={onClick}
+      title={title}
+      aria-label={ariaLabel}
+      style={style}
+    >
+      <span aria-hidden="true">{glyph}</span>
+    </button>
   );
 }
 
@@ -394,7 +438,7 @@ function TabBody({ sessionId }: { sessionId: string }): JSX.Element {
             animation: refreshing ? "cv-spin 600ms linear" : "none"
           }}
         >
-          {"\u21bb"}
+          {"↻"}
         </span>
       </button>
       <TimelineStrip timeline={s.timeline} agents={s.agents} onFocusAgent={onFocusAgent} />

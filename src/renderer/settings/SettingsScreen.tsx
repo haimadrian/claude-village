@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { AboutModal } from "./AboutModal";
 import {
   loadFilter,
   saveFilter,
@@ -66,7 +65,6 @@ const HOOK_SNIPPET: string = JSON.stringify(
 type HookBanner = { kind: "success" | "error"; message: string } | null;
 
 export function SettingsScreen({ onClose }: { onClose: () => void }): JSX.Element {
-  const [about, setAbout] = useState(false);
   const [ghostMinutes, setGhostMinutes] = useState(3);
   const [copied, setCopied] = useState(false);
   const [ageFilter, setAgeFilter] = useState<SessionAgeFilter>(() => loadFilter());
@@ -78,18 +76,14 @@ export function SettingsScreen({ onClose }: { onClose: () => void }): JSX.Elemen
   useEffect(() => {
     const handleKey = (e: KeyboardEvent): void => {
       if (e.key === "Escape") {
-        if (about) {
-          setAbout(false);
-        } else {
-          onClose();
-        }
+        onClose();
       }
     };
     window.addEventListener("keydown", handleKey);
     return () => {
       window.removeEventListener("keydown", handleKey);
     };
-  }, [about, onClose]);
+  }, [onClose]);
 
   const copyTimerRef = useMemo(() => ({ id: null as ReturnType<typeof setTimeout> | null }), []);
   useEffect(() => {
@@ -367,12 +361,10 @@ export function SettingsScreen({ onClose }: { onClose: () => void }): JSX.Elemen
             />
           </label>
         </section>
-        <div style={{ display: "flex", gap: 8, justifyContent: "space-between" }}>
-          <button onClick={() => setAbout(true)}>About</button>
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
           <button onClick={onClose}>Close</button>
         </div>
       </div>
-      {about && <AboutModal onClose={() => setAbout(false)} />}
       {hookPreview && hookAction && (
         <div
           role="dialog"

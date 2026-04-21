@@ -79,17 +79,26 @@ test("active session auto-opens a tab and renders the village canvas", async () 
   await expect(window.locator("canvas").first()).toBeVisible({ timeout: 5_000 });
 });
 
-test("Settings gear opens Settings, and Settings opens the About modal", async () => {
+test("Sidebar footer icons open Settings, Help, and About dialogs", async () => {
   const window = await app.firstWindow();
-  // The Three.js canvas covers the whole tab body; force-click the gear button
-  // which sits on top via `position: fixed`.
+  // Sidebar icon buttons live in the aside column; they use fixed-size 36x36
+  // icon-only buttons with accessible names.
+
+  // Settings
   await window.getByRole("button", { name: "Open settings" }).click({ force: true });
   await expect(window.getByRole("heading", { name: "Settings" })).toBeVisible();
-  await window.getByRole("button", { name: "About" }).click();
-  await expect(window.getByText("Created by Haim Adrian for Claude Code users.")).toBeVisible();
-  // Two buttons named "Close" may exist (about + settings); press Escape instead.
-  await window.keyboard.press("Escape");
-  await expect(window.getByText("Created by Haim Adrian for Claude Code users.")).toBeHidden();
   await window.keyboard.press("Escape");
   await expect(window.getByRole("heading", { name: "Settings" })).toBeHidden();
+
+  // Help
+  await window.getByRole("button", { name: "Open help" }).click({ force: true });
+  await expect(window.getByRole("heading", { name: /claude-village - Help/ })).toBeVisible();
+  await window.keyboard.press("Escape");
+  await expect(window.getByRole("heading", { name: /claude-village - Help/ })).toBeHidden();
+
+  // About
+  await window.getByRole("button", { name: "Open about" }).click({ force: true });
+  await expect(window.getByText("Created by Haim Adrian for Claude Code users.")).toBeVisible();
+  await window.keyboard.press("Escape");
+  await expect(window.getByText("Created by Haim Adrian for Claude Code users.")).toBeHidden();
 });

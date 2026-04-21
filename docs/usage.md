@@ -98,9 +98,21 @@ the village.
 - Arrow/dolly keys are ignored while focus is inside a text input, textarea,
   or any other editable field, so typing in Settings never jitters the camera.
 
+## Sidebar footer icons
+
+The bottom of the sidebar has a row of three icon-only buttons, pinned under the
+session list:
+
+- **Settings** (gear icon) - opens the settings panel.
+- **Help** (`?` icon) - opens the Help dialog (keyboard shortcuts, camera / mouse
+  controls, and a quick rundown of each zone).
+- **About** (info icon) - opens the About dialog (version and credits).
+
+Each button has a hover highlight and a tooltip; keyboard focus shows an outline.
+
 ## Settings
 
-Open settings from the gear icon in the top-right corner of the window.
+Open settings from the gear icon in the sidebar footer.
 
 - **Data source toggles** - JSONL tail is on by default. Toggle hooks on if you have the
   optional Claude Code hook server set up (it gives richer tool boundary events).
@@ -113,12 +125,27 @@ Open settings from the gear icon in the top-right corner of the window.
 - **Ghost retirement timer** - how long a villager can stay idle before it becomes a
   ghost, and how long a ghost lingers before it despawns.
 
+About is no longer nested inside Settings; use the dedicated About icon in the
+sidebar footer instead.
+
+## Help
+
+Open Help from the `?` icon in the sidebar footer. The Help dialog covers:
+
+- Camera controls (orbit, zoom, focus-on-click, timeline pan).
+- Mouse interactions (zone / signpost / character tooltips, clickable bubbles).
+- Keyboard shortcuts (Esc, `Cmd+,`, `Cmd+W`, `Cmd+Option+I`, arrow pan, dolly keys).
+- A zone-by-zone table matching the list above, so you do not have to memorise which
+  zone maps to which tool.
+
+Press `Esc` or click the backdrop to close.
+
 ## About
 
 Pick one of:
 
 - macOS menu bar -> `claude-village` -> `About claude-village`.
-- Settings panel -> About tab.
+- The About icon (info glyph) in the sidebar footer.
 
 Shows the current version and a link to the GitHub repo.
 
