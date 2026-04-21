@@ -122,8 +122,8 @@ Each button has a hover highlight and a tooltip; keyboard focus shows an outline
 
 Open settings from the gear icon in the sidebar footer.
 
-- **Data source toggles** - JSONL tail is on by default. Toggle hooks on if you have the
-  optional Claude Code hook server set up (it gives richer tool boundary events).
+- **Data source** - JSONL tailing is always on. There is no toggle; if you want
+  lower-latency events, add the optional hook via the Install hook button below.
 - **Install / Uninstall hook** - two buttons above the manual JSON snippet. `Install`
   merges the claude-village hook entries into `~/.claude/settings.json` (or
   `$CLAUDE_CONFIG_DIR/settings.json`) after showing a side-by-side before/after diff;
