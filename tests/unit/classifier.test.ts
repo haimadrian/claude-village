@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { classify } from "../../src/main/classifier";
+import { classify, isTrivialSummary } from "../../src/main/classifier";
 import type { AgentEvent } from "../../src/shared/types";
 
 const base: Omit<AgentEvent, "type"> = {
@@ -94,5 +94,43 @@ describe("classify", () => {
       toolArgsSummary: "/tmp/x.ts"
     });
     expect(r.tooltip).toContain("/tmp/x.ts");
+  });
+
+  it("falls back to 'Done' when post-tool-use resultSummary is empty", () => {
+    const r = classify({ ...base, type: "post-tool-use", resultSummary: "" });
+    expect(r.tooltip).toBe("Done");
+  });
+
+  it("falls back to 'Done' when post-tool-use resultSummary is whitespace", () => {
+    const r = classify({ ...base, type: "post-tool-use", resultSummary: "   \n " });
+    expect(r.tooltip).toBe("Done");
+  });
+
+  it("falls back to 'Done' when post-tool-use resultSummary is only arrow punctuation", () => {
+    const arrow = classify({ ...base, type: "post-tool-use", resultSummary: "->" });
+    expect(arrow.tooltip).toBe("Done");
+    const ellipsis = classify({ ...base, type: "post-tool-use", resultSummary: "..." });
+    expect(ellipsis.tooltip).toBe("Done");
+  });
+
+  it("preserves real post-tool-use summaries", () => {
+    const r = classify({ ...base, type: "post-tool-use", resultSummary: "wrote 12 lines" });
+    expect(r.tooltip).toBe("wrote 12 lines");
+  });
+
+  it("pre-tool-use tooltip is never empty", () => {
+    const r = classify({ ...base, type: "pre-tool-use", toolName: "Read", toolArgsSummary: "" });
+    expect(r.tooltip).toBe("Read");
+  });
+
+  it("isTrivialSummary recognises junk", () => {
+    expect(isTrivialSummary("")).toBe(true);
+    expect(isTrivialSummary("   ")).toBe(true);
+    expect(isTrivialSummary("->")).toBe(true);
+    expect(isTrivialSummary("<-")).toBe(true);
+    expect(isTrivialSummary("--")).toBe(true);
+    expect(isTrivialSummary("...")).toBe(true);
+    expect(isTrivialSummary("Done")).toBe(false);
+    expect(isTrivialSummary("wrote 3 lines")).toBe(false);
   });
 });

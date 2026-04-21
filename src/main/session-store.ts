@@ -1,7 +1,7 @@
 import { EventEmitter } from "node:events";
 import fs from "node:fs";
 import path from "node:path";
-import { classify } from "./classifier";
+import { classify, isTrivialSummary } from "./classifier";
 import { logger } from "./logger";
 import type { AgentEvent, SessionState, AgentState, TimelineLine } from "../shared/types";
 
@@ -170,12 +170,21 @@ export class SessionStore extends EventEmitter {
       agent.currentZone = c.zone;
       agent.targetZone = c.zone;
       agent.animation = c.animation;
-      agent.recentActions.push({
-        timestamp: event.timestamp,
-        zone: c.zone,
-        summary: c.tooltip
-      });
-      if (agent.recentActions.length > ACTIONS_CAP) agent.recentActions.shift();
+      // Never overwrite the speech bubble with empty/punctuation-only content.
+      // The classifier already substitutes "Done" for trivial post-tool-use
+      // summaries, but this guard also covers anything else upstream that
+      // might leak an arrow or blank string through. If the new summary is
+      // junk and the agent already has a readable action, keep the old one
+      // visible. The timeline still gets every event via the code below.
+      const summary = c.tooltip;
+      if (!isTrivialSummary(summary) || agent.recentActions.length === 0) {
+        agent.recentActions.push({
+          timestamp: event.timestamp,
+          zone: c.zone,
+          summary
+        });
+        if (agent.recentActions.length > ACTIONS_CAP) agent.recentActions.shift();
+      }
       changes.push({ kind: "agent-upsert", agent });
 
       const line: TimelineLine = {

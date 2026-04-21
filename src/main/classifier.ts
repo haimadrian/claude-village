@@ -28,17 +28,17 @@ export function classify(event: AgentEvent): Classification {
   }
 
   if (event.type === "user-message") {
-    const excerpt = event.messageExcerpt ?? "";
+    const excerpt = (event.messageExcerpt ?? "").trim();
     return {
       zone: "tavern",
       animation: "idle",
-      tooltip: `User: ${excerpt}`,
+      tooltip: excerpt ? `User: ${excerpt}` : "User",
       timelineText: `user: ${excerpt}`
     };
   }
 
   if (event.type === "assistant-message") {
-    const excerpt = event.messageExcerpt ?? "";
+    const excerpt = (event.messageExcerpt ?? "").trim();
     return {
       zone: "tavern",
       animation: "idle",
@@ -48,7 +48,7 @@ export function classify(event: AgentEvent): Classification {
   }
 
   if (event.type === "pre-tool-use") {
-    const toolName = event.toolName ?? "tool";
+    const toolName = (event.toolName ?? "tool").trim() || "tool";
     const args = event.toolArgsSummary ?? "";
     const zone = toolToZone(toolName, args);
     const animation = zoneToAnimation(zone);
@@ -57,25 +57,46 @@ export function classify(event: AgentEvent): Classification {
       seenClassifications.add(key);
       logger.debug("classifier new classification path", { toolName, zone, animation });
     }
+    const tooltip = `${toolName} ${args}`.trim() || toolName;
     return {
       zone,
       animation,
-      tooltip: `${toolName} ${args}`.trim(),
+      tooltip,
       timelineText: `${toolName}(${args})`
     };
   }
 
   if (event.type === "post-tool-use") {
     const zone = toolToZone(event.toolName ?? "", "");
+    const rawSummary = (event.resultSummary ?? "").trim();
+    // `resultSummary` can arrive as "" (empty string, not undefined) when the
+    // tool produced no textual output, or as pure punctuation like "->" or "..."
+    // from terse shell output. Either case would otherwise clobber the bubble
+    // with unreadable junk, so we fall back to "Done" for display.
+    const tooltip = isTrivialSummary(rawSummary) ? "Done" : rawSummary;
     return {
       zone,
       animation: zoneToAnimation(zone),
-      tooltip: event.resultSummary ?? "Done",
+      tooltip,
       timelineText: `-> ${event.resultSummary ?? ""}`
     };
   }
 
   return { zone: "tavern", animation: "idle", tooltip: "", timelineText: "" };
+}
+
+/**
+ * True if `s` is empty (after trimming) or contains only punctuation that
+ * would render as a meaningless speech bubble - arrows like "->", "<-", ellipses
+ * like "...", dashes, etc. We use this both in the classifier (to replace such
+ * content with a human-readable fallback) and in the session store (to avoid
+ * overwriting the previous readable bubble with junk).
+ */
+export function isTrivialSummary(s: string): boolean {
+  const trimmed = s.trim();
+  if (trimmed.length === 0) return true;
+  // Only characters from the "arrow / punctuation" set - nothing alphanumeric.
+  return /^[-<>._\s]+$/.test(trimmed);
 }
 
 function toolToZone(tool: string, args: string): ZoneId {

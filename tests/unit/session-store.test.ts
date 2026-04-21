@@ -161,6 +161,39 @@ describe("SessionStore", () => {
     expect(captured).toBe("Refactoring hook server");
   });
 
+  it("post-tool-use with empty resultSummary does not overwrite previous bubble with empty", () => {
+    // Regression: the speech bubble would briefly clear/flicker when a tool
+    // result carried no textual summary. The classifier now substitutes
+    // "Done" so the bubble always stays readable.
+    store.apply(ev({ type: "session-start" }));
+    store.apply(ev({ type: "pre-tool-use", toolName: "Read", toolArgsSummary: "/x.ts" }));
+    const readAction = store.getSession("s1")?.agents.get("a1")?.recentActions.at(-1)?.summary;
+    expect(readAction).toContain("/x.ts");
+
+    store.apply(ev({ type: "post-tool-use", toolName: "Read", resultSummary: "" }));
+    const latest = store.getSession("s1")?.agents.get("a1")?.recentActions.at(-1)?.summary ?? "";
+    // Must be non-empty: either the fallback "Done" or the previous Read action.
+    expect(latest.length).toBeGreaterThan(0);
+    expect(latest).not.toBe("->");
+  });
+
+  it("post-tool-use with arrow-only resultSummary does not replace a readable bubble", () => {
+    // Simulates terse tool output like `->` leaking through the normalizer.
+    // The previous bubble ("Read /x.ts") must stay visible; the arrow must
+    // never become the last recentAction.
+    store.apply(ev({ type: "session-start" }));
+    store.apply(ev({ type: "pre-tool-use", toolName: "Read", toolArgsSummary: "/x.ts" }));
+    store.apply(ev({ type: "post-tool-use", toolName: "Read", resultSummary: "->" }));
+    const actions = store.getSession("s1")?.agents.get("a1")?.recentActions ?? [];
+    const last = actions.at(-1)?.summary ?? "";
+    expect(last).not.toBe("");
+    expect(last).not.toBe("->");
+    // Every stored summary must be readable - no arrow-only entries.
+    for (const a of actions) {
+      expect(a.summary.trim()).not.toMatch(/^[-<>._\s]+$/);
+    }
+  });
+
   it("expires ghosts past their timer", () => {
     store.apply(ev({ type: "session-start" }));
     store.apply(
