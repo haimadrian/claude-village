@@ -89,6 +89,14 @@ the village.
 - Click and drag anywhere in the village to rotate the camera.
 - Scroll (pinch on a trackpad) to zoom in and out.
 - Clicking a timeline segment will pan and re-center automatically.
+- Arrow keys pan the camera along the ground plane relative to where it is
+  currently facing: `Up` / `Down` move along the view axis, `Left` / `Right`
+  strafe sideways. Hold Shift to pan faster. Panning overrides any in-flight
+  focus-agent / focus-zone glide, so pressing an arrow key always gives you
+  immediate manual control.
+- `+` / `=` (or `PgUp`) dolly the camera in; `-` / `_` (or `PgDn`) dolly out.
+- Arrow/dolly keys are ignored while focus is inside a text input, textarea,
+  or any other editable field, so typing in Settings never jitters the camera.
 
 ## Settings
 
@@ -131,3 +139,5 @@ Shows the current version and a link to the GitHub repo.
 - `Cmd+,` - open settings.
 - `Cmd+W` - close the current tab.
 - `Cmd+Option+I` - toggle DevTools (renderer).
+- `Arrow keys` - pan the village camera along the ground plane (hold Shift for faster).
+- `+` / `=` / `PgUp` - dolly the camera in. `-` / `_` / `PgDn` - dolly out.

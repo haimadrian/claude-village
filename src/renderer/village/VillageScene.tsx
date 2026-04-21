@@ -1,10 +1,11 @@
 /* eslint-disable react/no-unknown-property -- react-three-fiber extends JSX with three.js props */
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { Canvas, useFrame, type ThreeEvent } from "@react-three/fiber";
 import { OrbitControls, Sky, Cloud, Clouds, useGLTF } from "@react-three/drei";
 import { logger } from "../logger";
 import { allModelUrls } from "./assetMap";
+import { useKeyboardPan } from "./useKeyboardPan";
 
 // Preload every bundled GLB exactly once (at module load). useGLTF.preload
 // primes the internal GLTFLoader cache so the first scene render doesn't
@@ -156,6 +157,7 @@ export function VillageScene({ sessionId }: VillageSceneProps) {
       />
 
       <CameraTargetLerper controlsRef={controlsRef} desiredTargetRef={desiredTargetRef} />
+      <KeyboardCameraController controlsRef={controlsRef} desiredTargetRef={desiredTargetRef} />
 
       {/* Animated water surface + opaque seabed. Replaces the old flat
           plane and gives the camera something to look at when it
@@ -314,6 +316,25 @@ function CameraTargetLerper({
       desiredTargetRef.current = null;
     }
   });
+  return null;
+}
+
+/**
+ * Thin wrapper that installs the keyboard-pan hook. Keyboard input is
+ * treated as a hard override: pressing any pan/dolly key clears the
+ * pending lerp target so the glide does not fight the user.
+ */
+function KeyboardCameraController({
+  controlsRef,
+  desiredTargetRef
+}: {
+  controlsRef: React.MutableRefObject<OrbitControlsImpl | null>;
+  desiredTargetRef: React.MutableRefObject<THREE.Vector3 | null>;
+}) {
+  const onUserOverride = useCallback((): void => {
+    desiredTargetRef.current = null;
+  }, [desiredTargetRef]);
+  useKeyboardPan(controlsRef, onUserOverride);
   return null;
 }
 
