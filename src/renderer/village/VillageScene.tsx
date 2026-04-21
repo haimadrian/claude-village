@@ -1,7 +1,7 @@
 /* eslint-disable react/no-unknown-property -- react-three-fiber extends JSX with three.js props */
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
-import { Canvas } from "@react-three/fiber";
+import { Canvas, useFrame, type ThreeEvent } from "@react-three/fiber";
 import { OrbitControls, Sky, Cloud, Clouds, useGLTF } from "@react-three/drei";
 import { logger } from "../logger";
 import { allModelUrls } from "./assetMap";
@@ -33,19 +33,19 @@ import { Character } from "./Character";
 import { TooltipLayer } from "./TooltipLayer";
 import { useSessions } from "../context/SessionContext";
 import { allSlotPositions, slotPositionFor } from "./slots";
+import { WavyWater } from "./WavyWater";
+import { MinorIsland } from "./MinorIsland";
+import { MINOR_ISLANDS } from "./minorIslands";
+import { BoatFleet } from "./Boat";
+import { GRID_SIZE, MAIN_ISLAND_RADIUS, ZONE_RING_RADIUS } from "./sceneConstants";
 
-// The ring of zones used to sit at radius 8. With zone buildings that are
-// ~4 units wide, adjacent zones almost touched and characters rendered on
-// top of zone centres, making them invisible. Radius 13 leaves ~9 units of
-// arc between zones at the ring - plenty of room for the signpost,
-// character slots, and the outward-facing plank.
-const RADIUS = 13;
+// Re-exported to keep the pre-refactor API surface of this module. Older
+// call sites may import `RADIUS`, `GRID_SIZE`, `ISLAND_RADIUS` from here.
+const RADIUS = ZONE_RING_RADIUS;
+const ISLAND_RADIUS = MAIN_ISLAND_RADIUS;
 
-/** Walkable-grid resolution in cells per side. Bumped to cover RADIUS 13. */
-const GRID_SIZE = 48;
-
-/** Island radius in world units. Chosen so characters cannot walk onto water. */
-const ISLAND_RADIUS = RADIUS + 5;
+/** Height of the main island cylinder. Raised so the sides are visible. */
+const MAIN_ISLAND_HEIGHT = 3;
 
 interface VillageSceneProps {
   sessionId?: string;
@@ -77,6 +77,12 @@ export function VillageScene({ sessionId }: VillageSceneProps) {
   const positionsRef = useRef<Map<string, THREE.Vector3>>(new Map());
 
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
+  /**
+   * Desired camera target - what `controls.target` is lerp-ing toward.
+   * We do not snap straight to it; instead the `CameraTargetLerper`
+   * nudged the actual target each frame for a smooth glide.
+   */
+  const desiredTargetRef = useRef<THREE.Vector3 | null>(null);
 
   useEffect(() => {
     logger.debug("VillageScene mounted", { sessionId });
@@ -104,14 +110,31 @@ export function VillageScene({ sessionId }: VillageSceneProps) {
         agentId,
         zone: agent.currentZone
       });
-      controlsRef.current?.target.set(pos[0], 1, pos[2]);
-      controlsRef.current?.update();
+      desiredTargetRef.current = new THREE.Vector3(pos[0], 1, pos[2]);
     };
     window.addEventListener("village:focus-agent", handler);
     return () => {
       window.removeEventListener("village:focus-agent", handler);
     };
   }, [sessionId, session]);
+
+  // Listen for zone-focus events dispatched by our invisible click pads.
+  useEffect(() => {
+    const handler = (e: Event): void => {
+      const detail = (e as CustomEvent<{ zoneId: string }>).detail;
+      if (!detail?.zoneId) return;
+      const idx = ZONES.findIndex((z) => z.id === detail.zoneId);
+      if (idx < 0) return;
+      const pos = computeZonePositions()[idx];
+      if (!pos) return;
+      logger.info("VillageScene focus-zone fired", { sessionId, zoneId: detail.zoneId });
+      desiredTargetRef.current = new THREE.Vector3(pos[0], 1, pos[2]);
+    };
+    window.addEventListener("village:focus-zone", handler);
+    return () => {
+      window.removeEventListener("village:focus-zone", handler);
+    };
+  }, [sessionId]);
 
   return (
     <Canvas camera={{ position: [22, 18, 22], fov: 45 }}>
@@ -120,28 +143,50 @@ export function VillageScene({ sessionId }: VillageSceneProps) {
       <Sky sunPosition={[100, 80, 50]} turbidity={8} rayleigh={2} />
       <ambientLight intensity={0.55} />
       <directionalLight position={[20, 30, 10]} intensity={0.95} castShadow />
-      <OrbitControls ref={controlsRef} enablePan enableRotate enableZoom target={[0, 0, 0]} />
+      <OrbitControls
+        ref={controlsRef}
+        enablePan
+        enableRotate
+        enableZoom
+        screenSpacePanning
+        target={[0, 0, 0]}
+        minDistance={4}
+        maxDistance={80}
+        maxPolarAngle={Math.PI * 0.55}
+      />
 
-      {/* Water: large flat plane just below the island. Semi-transparent
-          blue. Horizontally-oriented via rotation so it covers the XZ plane. */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.2, 0]} receiveShadow>
-        <planeGeometry args={[200, 200]} />
-        <meshStandardMaterial
-          color="#3b82c4"
-          transparent
-          opacity={0.85}
-          metalness={0.35}
-          roughness={0.45}
-        />
-      </mesh>
+      <CameraTargetLerper controlsRef={controlsRef} desiredTargetRef={desiredTargetRef} />
 
-      {/* Island: round grassy disk sized a bit larger than the zone ring.
-          Uses a cylinder so the top face is visible but the side has a tiny
-          lip that keeps the island readable from low camera angles. */}
-      <mesh position={[0, 0, 0]} receiveShadow>
-        <cylinderGeometry args={[ISLAND_RADIUS, ISLAND_RADIUS, 0.3, 48]} />
-        <meshStandardMaterial color="#6b8e23" />
-      </mesh>
+      {/* Animated water surface + opaque seabed. Replaces the old flat
+          plane and gives the camera something to look at when it
+          tilts under the horizon. */}
+      <WavyWater />
+
+      {/* Main island: a tall cylinder with earthy sides so looking from
+          below shows brown cliff rather than a wafer-thin disc. A thin
+          grass cap cylinder on top keeps the green surface visually
+          distinct from the dirt walls. */}
+      <group position={[0, 0, 0]}>
+        {/* Side wall - dirt / warm earth. Pushed down so the top face
+            of the cylinder sits at y=0. */}
+        <mesh position={[0, -MAIN_ISLAND_HEIGHT / 2, 0]} receiveShadow>
+          <cylinderGeometry args={[ISLAND_RADIUS, ISLAND_RADIUS * 0.95, MAIN_ISLAND_HEIGHT, 48]} />
+          <meshStandardMaterial color="#8b6a3b" roughness={0.95} />
+        </mesh>
+        {/* Grass cap. A thin cylinder on the very top. */}
+        <mesh position={[0, 0.05, 0]} receiveShadow>
+          <cylinderGeometry args={[ISLAND_RADIUS, ISLAND_RADIUS, 0.2, 48]} />
+          <meshStandardMaterial color="#6b8e23" roughness={0.9} />
+        </mesh>
+      </group>
+
+      {/* Minor islands scattered around the main island. Purely decorative. */}
+      {MINOR_ISLANDS.map((layout) => (
+        <MinorIsland key={layout.id} layout={layout} />
+      ))}
+
+      {/* Boats cruising the sea. */}
+      <BoatFleet />
 
       {/* Clouds: a small cluster above the island. Kept low-density so
           scroll/orbit performance stays smooth. */}
@@ -191,6 +236,31 @@ export function VillageScene({ sessionId }: VillageSceneProps) {
       {ZONES.map((z, i) => (
         <Zone key={z.id} meta={z} position={positions[i]!} />
       ))}
+      {/* Invisible click pads - one per zone. They sit above each zone
+          centre and dispatch `village:focus-zone` on click so the
+          camera can re-target. They stop propagation so the click
+          does not also register on the underlying ground / water. */}
+      {ZONES.map((z, i) => {
+        const pos = positions[i]!;
+        return (
+          <mesh
+            key={`click-${z.id}`}
+            position={[pos[0], 2, pos[2]]}
+            onClick={(e: ThreeEvent<MouseEvent>) => {
+              e.stopPropagation();
+              window.dispatchEvent(
+                new CustomEvent("village:focus-zone", { detail: { zoneId: z.id } })
+              );
+            }}
+          >
+            <boxGeometry args={[4, 4, 4]} />
+            {/* transparent + opacity 0 keeps the raycaster happy while
+                leaving nothing visible on screen. `depthWrite: false`
+                stops it from punching a hole in the depth buffer. */}
+            <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+          </mesh>
+        );
+      })}
       {session &&
         Array.from(session.agents.values()).map((agent) => {
           const zoneCenter = zonePositions[agent.currentZone];
@@ -213,6 +283,38 @@ export function VillageScene({ sessionId }: VillageSceneProps) {
       <TooltipLayer {...(sessionId !== undefined ? { sessionId } : {})} />
     </Canvas>
   );
+}
+
+/**
+ * Smoothly lerps `controlsRef.current.target` toward `desiredTargetRef`.
+ * Lives inside the Canvas so it can use `useFrame`. Clears the desired
+ * target once it gets close enough to avoid infinite tiny updates.
+ */
+function CameraTargetLerper({
+  controlsRef,
+  desiredTargetRef
+}: {
+  controlsRef: React.MutableRefObject<OrbitControlsImpl | null>;
+  desiredTargetRef: React.MutableRefObject<THREE.Vector3 | null>;
+}) {
+  useFrame((_, dt) => {
+    const controls = controlsRef.current;
+    const desired = desiredTargetRef.current;
+    if (!controls || !desired) return;
+    const t = controls.target as THREE.Vector3;
+    // Exponential-decay lerp: independent of frame rate, reaches 63%
+    // of the remaining distance every `1 / rate` seconds.
+    const rate = 4;
+    const alpha = 1 - Math.exp(-rate * dt);
+    t.lerp(desired, alpha);
+    controls.update();
+    if (t.distanceTo(desired) < 0.02) {
+      t.copy(desired);
+      controls.update();
+      desiredTargetRef.current = null;
+    }
+  });
+  return null;
 }
 
 export function computeZonePositions(): [number, number, number][] {
