@@ -46,6 +46,13 @@ export interface AgentState {
   animation: AnimationState;
   recentActions: AgentAction[]; // ring buffer, max 5
   ghostExpiresAt?: number; // epoch ms
+  /**
+   * Last time we observed any event for this agent (session-start,
+   * subagent-start, pre/post-tool-use, user-message, assistant-message, or a
+   * session-end affecting the mayor). Drives the idle-to-ghost transition
+   * inside `SessionStore.expireGhosts`.
+   */
+  lastSeenAt?: number;
   skinColor: string; // hex, derived from hash(id)
   /**
    * True when the agent has finished its last turn and is waiting for input

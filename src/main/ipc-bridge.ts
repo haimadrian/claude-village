@@ -102,8 +102,11 @@ export function wireIpc(opts: {
     }
   });
 
-  // Ghosts expire on a 3-minute timer inside the store. We tick every 30s so
-  // removal latency is bounded to ~30s worst-case, which is visually fine.
+  // Two-stage retirement runs inside `store.expireGhosts`:
+  // 1) idle -> ghost after 3 min of silence on an agent,
+  // 2) ghost -> removed after 1 h.
+  // Ticking every 30s keeps worst-case idle-to-ghost latency at ~30s, which
+  // matches the previous cadence and is well under the 1 h despawn window.
   const ghostInterval = setInterval(() => store.expireGhosts(Date.now()), 30_000);
   // Do not keep the Node event loop alive just for this timer. The window
   // lifecycle owns shutdown.

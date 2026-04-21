@@ -5,7 +5,19 @@ import { classify, isTrivialSummary } from "./classifier";
 import { logger } from "./logger";
 import type { AgentEvent, SessionState, AgentState, TimelineLine } from "../shared/types";
 
-const GHOST_MS = 3 * 60 * 1000;
+/**
+ * Idle timer: once an agent has received no events (tool use, message, or
+ * session lifecycle) for this long, the next `expireGhosts` tick flips it to
+ * a ghost. Kept tight (3 minutes) because the scene feels abandoned well
+ * before the ghost TTL below kicks in.
+ */
+const IDLE_BEFORE_GHOST_MS = 3 * 60 * 1000;
+/**
+ * Ghost TTL: how long a ghost lingers in the scene (fading out) before being
+ * removed entirely. One hour gives users time to see "oh, that session is
+ * done" without flooding the scene with ancient agents forever.
+ */
+const GHOST_TTL_MS = 60 * 60 * 1000;
 const TIMELINE_CAP = 500;
 const ACTIONS_CAP = 5;
 
@@ -138,21 +150,28 @@ export class SessionStore extends EventEmitter {
         agentId: event.agentId
       });
       session.status = "active";
-      this.ensureAgent(session, event.agentId, event.kind, event.parentAgentId);
+      const agent = this.ensureAgent(session, event.agentId, event.kind, event.parentAgentId);
+      agent.lastSeenAt = event.timestamp;
       changes.push({ kind: "session-upsert", session: stripRelations(session) });
-      const agent = session.agents.get(event.agentId);
-      if (agent) changes.push({ kind: "agent-upsert", agent });
+      changes.push({ kind: "agent-upsert", agent });
     } else if (event.type === "subagent-start") {
-      this.ensureAgent(session, event.agentId, "subagent", event.parentAgentId);
-      const agent = session.agents.get(event.agentId);
-      if (agent) {
-        // A subagent coming back to life is not waiting on anyone.
-        if (agent.waitingForInput === true) agent.waitingForInput = false;
-        changes.push({ kind: "agent-upsert", agent });
-      }
+      const agent = this.ensureAgent(session, event.agentId, "subagent", event.parentAgentId);
+      // A subagent coming back to life is not waiting on anyone.
+      if (agent.waitingForInput === true) agent.waitingForInput = false;
+      agent.lastSeenAt = event.timestamp;
+      changes.push({ kind: "agent-upsert", agent });
     } else if (event.type === "session-end") {
       logger.info("SessionStore session ended", { sessionId: event.sessionId });
       session.status = "ended";
+      // Bump lastSeenAt on the mayor so the idle-to-ghost timer starts at the
+      // Stop moment, not at whatever the last tool event was. Without this, a
+      // session that emitted Stop minutes after its last tool would ghost
+      // almost immediately on the next expireGhosts tick.
+      const mayor = session.agents.get(event.agentId);
+      if (mayor) {
+        mayor.lastSeenAt = event.timestamp;
+        changes.push({ kind: "agent-upsert", agent: mayor });
+      }
       changes.push({ kind: "session-upsert", session: stripRelations(session) });
     } else if (event.type === "subagent-end") {
       const agent = session.agents.get(event.agentId);
@@ -160,7 +179,8 @@ export class SessionStore extends EventEmitter {
         agent.animation = "ghost";
         agent.currentZone = "tavern";
         agent.targetZone = "tavern";
-        agent.ghostExpiresAt = event.timestamp + GHOST_MS;
+        agent.ghostExpiresAt = event.timestamp + GHOST_TTL_MS;
+        agent.lastSeenAt = event.timestamp;
         // A subagent that just ended has handed control back to its
         // orchestrator; until the orchestrator dispatches it again (or any
         // follow-up activity arrives), it is effectively waiting for input.
@@ -177,6 +197,12 @@ export class SessionStore extends EventEmitter {
       if (agent.waitingForInput === true) {
         agent.waitingForInput = false;
       }
+      // Revive a ghost on activity: clear the TTL so expireGhosts will not
+      // despawn it, and let the classifier set the correct animation below.
+      if (agent.animation === "ghost") {
+        delete agent.ghostExpiresAt;
+      }
+      agent.lastSeenAt = event.timestamp;
       // Advance the semantic zone immediately. The renderer animates the
       // character between zones over time; it no longer relies on
       // `currentZone` for the mount-time position (that is latched on first
@@ -228,12 +254,24 @@ export class SessionStore extends EventEmitter {
       // is no longer waiting.
       const agent = this.ensureAgent(session, event.agentId, event.kind, event.parentAgentId);
       const nextWaiting = event.type === "assistant-message";
-      if ((agent.waitingForInput ?? false) !== nextWaiting) {
+      const waitingChanged = (agent.waitingForInput ?? false) !== nextWaiting;
+      if (waitingChanged) {
         if (nextWaiting) {
           agent.waitingForInput = true;
         } else {
           agent.waitingForInput = false;
         }
+      }
+      agent.lastSeenAt = event.timestamp;
+      // Revive a ghost on any message activity. Flip back to idle so the
+      // renderer stops fading the character; downstream tool events will
+      // pick the right work animation.
+      const revived = agent.animation === "ghost";
+      if (revived) {
+        agent.animation = "idle";
+        delete agent.ghostExpiresAt;
+      }
+      if (waitingChanged || revived) {
         changes.push({ kind: "agent-upsert", agent });
       }
 
@@ -256,18 +294,38 @@ export class SessionStore extends EventEmitter {
     } satisfies SessionPatch);
   }
 
+  /**
+   * Two-stage retirement sweep:
+   *
+   * 1. Non-ghost agents whose `lastSeenAt` is older than `IDLE_BEFORE_GHOST_MS`
+   *    flip to ghost in the tavern with a fresh `GHOST_TTL_MS` countdown, and
+   *    emit an `agent-upsert` so the renderer fades them.
+   * 2. Already-ghost agents whose `ghostExpiresAt` has passed get removed
+   *    from the session and emit an `agent-remove`.
+   *
+   * Called on a timer from `ipc-bridge.ts`. Side effects are limited to
+   * mutating agent state inside the store and emitting patches.
+   */
   expireGhosts(now: number): void {
     for (const session of this.sessions.values()) {
       for (const agent of Array.from(session.agents.values())) {
-        if (
-          agent.animation === "ghost" &&
-          agent.ghostExpiresAt !== undefined &&
-          agent.ghostExpiresAt < now
-        ) {
-          session.agents.delete(agent.id);
+        if (agent.animation === "ghost") {
+          if (agent.ghostExpiresAt !== undefined && agent.ghostExpiresAt < now) {
+            session.agents.delete(agent.id);
+            this.emit("patch", {
+              sessionId: session.sessionId,
+              changes: [{ kind: "agent-remove", agentId: agent.id }]
+            } satisfies SessionPatch);
+          }
+          continue;
+        }
+        if (agent.lastSeenAt !== undefined && now - agent.lastSeenAt > IDLE_BEFORE_GHOST_MS) {
+          agent.animation = "ghost";
+          agent.targetZone = "tavern";
+          agent.ghostExpiresAt = now + GHOST_TTL_MS;
           this.emit("patch", {
             sessionId: session.sessionId,
-            changes: [{ kind: "agent-remove", agentId: agent.id }]
+            changes: [{ kind: "agent-upsert", agent }]
           } satisfies SessionPatch);
         }
       }

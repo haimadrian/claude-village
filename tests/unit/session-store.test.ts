@@ -284,16 +284,201 @@ describe("SessionStore", () => {
         type: "subagent-start"
       })
     );
+    // subagent-end schedules despawn 1h in the future from the event timestamp,
+    // so we end it 90 minutes ago to guarantee expireGhosts(now) clears it.
     store.apply(
       ev({
         agentId: "sub-1",
         kind: "subagent",
         type: "subagent-end",
-        timestamp: Date.now() - 10 * 60 * 1000
+        timestamp: Date.now() - 90 * 60 * 1000
       })
     );
-    // simulate time passing
     store.expireGhosts(Date.now());
     expect(store.getSession("s1")?.agents.get("sub-1")).toBeUndefined();
+  });
+
+  describe("ghost retirement (idle -> ghost -> removed)", () => {
+    it("schedules subagent despawn 1 hour out on subagent-end (not 3 minutes)", () => {
+      const now = Date.now();
+      store.apply(ev({ type: "session-start", timestamp: now }));
+      store.apply(
+        ev({
+          agentId: "sub-1",
+          kind: "subagent",
+          parentAgentId: "a1",
+          type: "subagent-start",
+          timestamp: now
+        })
+      );
+      store.apply(ev({ agentId: "sub-1", kind: "subagent", type: "subagent-end", timestamp: now }));
+      const sub = store.getSession("s1")?.agents.get("sub-1");
+      // 1h = 60 * 60 * 1000 ms. Tolerate a tiny schedule skew but reject any
+      // value that falls inside the old 3-minute window.
+      const expected = now + 60 * 60 * 1000;
+      expect(sub?.ghostExpiresAt).toBe(expected);
+      expect(sub?.ghostExpiresAt).toBeGreaterThan(now + 59 * 60 * 1000);
+    });
+
+    it("updates lastSeenAt on the target agent for activity events", () => {
+      const t0 = Date.now();
+      store.apply(ev({ type: "session-start", timestamp: t0 }));
+      let a = store.getSession("s1")?.agents.get("a1");
+      expect(a?.lastSeenAt).toBe(t0);
+
+      const t1 = t0 + 1000;
+      store.apply(ev({ type: "pre-tool-use", toolName: "Read", timestamp: t1 }));
+      a = store.getSession("s1")?.agents.get("a1");
+      expect(a?.lastSeenAt).toBe(t1);
+
+      const t2 = t1 + 2000;
+      store.apply(ev({ type: "assistant-message", messageExcerpt: "hi", timestamp: t2 }));
+      a = store.getSession("s1")?.agents.get("a1");
+      expect(a?.lastSeenAt).toBe(t2);
+
+      const t3 = t2 + 500;
+      store.apply(ev({ type: "user-message", messageExcerpt: "yo", timestamp: t3 }));
+      a = store.getSession("s1")?.agents.get("a1");
+      expect(a?.lastSeenAt).toBe(t3);
+    });
+
+    it("flips a non-ghost agent to ghost after 3 minutes of silence on next expireGhosts tick", () => {
+      const t0 = Date.now();
+      store.apply(ev({ type: "session-start", timestamp: t0 }));
+      // Simulate a tool action 4 minutes ago, then no further activity.
+      const lastActivity = t0 - 4 * 60 * 1000;
+      store.apply(
+        ev({
+          type: "pre-tool-use",
+          toolName: "Read",
+          toolArgsSummary: "/x.ts",
+          timestamp: lastActivity
+        })
+      );
+      const before = store.getSession("s1")?.agents.get("a1");
+      expect(before?.animation).not.toBe("ghost");
+
+      const patches: Array<{ animation: string; targetZone: string }> = [];
+      store.on("patch", (p) => {
+        for (const c of p.changes) {
+          if (c.kind === "agent-upsert" && c.agent.id === "a1") {
+            patches.push({ animation: c.agent.animation, targetZone: c.agent.targetZone });
+          }
+        }
+      });
+
+      store.expireGhosts(t0);
+
+      const after = store.getSession("s1")?.agents.get("a1");
+      expect(after?.animation).toBe("ghost");
+      expect(after?.targetZone).toBe("tavern");
+      expect(after?.ghostExpiresAt).toBe(t0 + 60 * 60 * 1000);
+      // An agent-upsert patch carrying the ghost flip must reach the renderer.
+      expect(patches.some((p) => p.animation === "ghost")).toBe(true);
+    });
+
+    it("removes a ghost whose ghostExpiresAt is past now with an agent-remove patch", () => {
+      const t0 = Date.now();
+      store.apply(ev({ type: "session-start", timestamp: t0 }));
+      store.apply(
+        ev({
+          agentId: "sub-1",
+          kind: "subagent",
+          parentAgentId: "a1",
+          type: "subagent-start",
+          timestamp: t0
+        })
+      );
+      // Subagent-end 90 minutes ago => ghostExpiresAt = t0 - 30min (past).
+      store.apply(
+        ev({
+          agentId: "sub-1",
+          kind: "subagent",
+          type: "subagent-end",
+          timestamp: t0 - 90 * 60 * 1000
+        })
+      );
+
+      const removed: string[] = [];
+      store.on("patch", (p) => {
+        for (const c of p.changes) {
+          if (c.kind === "agent-remove") removed.push(c.agentId);
+        }
+      });
+
+      store.expireGhosts(t0);
+      expect(store.getSession("s1")?.agents.get("sub-1")).toBeUndefined();
+      expect(removed).toContain("sub-1");
+    });
+
+    it("revives a ghost when a new pre-tool-use arrives", () => {
+      const t0 = Date.now();
+      store.apply(ev({ type: "session-start", timestamp: t0 }));
+      store.apply(
+        ev({
+          agentId: "sub-1",
+          kind: "subagent",
+          parentAgentId: "a1",
+          type: "subagent-start",
+          timestamp: t0
+        })
+      );
+      store.apply(ev({ agentId: "sub-1", kind: "subagent", type: "subagent-end", timestamp: t0 }));
+      const ghost = store.getSession("s1")?.agents.get("sub-1");
+      expect(ghost?.animation).toBe("ghost");
+      expect(ghost?.ghostExpiresAt).toBeDefined();
+
+      const patches: Array<{ animation: string; ghostExpiresAt: number | undefined }> = [];
+      store.on("patch", (p) => {
+        for (const c of p.changes) {
+          if (c.kind === "agent-upsert" && c.agent.id === "sub-1") {
+            patches.push({
+              animation: c.agent.animation,
+              ghostExpiresAt: c.agent.ghostExpiresAt
+            });
+          }
+        }
+      });
+
+      store.apply(
+        ev({
+          agentId: "sub-1",
+          kind: "subagent",
+          type: "pre-tool-use",
+          toolName: "Read",
+          toolArgsSummary: "/x.ts",
+          timestamp: t0 + 1000
+        })
+      );
+
+      const revived = store.getSession("s1")?.agents.get("sub-1");
+      expect(revived?.animation).not.toBe("ghost");
+      expect(revived?.ghostExpiresAt).toBeUndefined();
+      // A revive must surface to the renderer so it stops rendering the fade.
+      expect(patches.length).toBeGreaterThan(0);
+      const last = patches.at(-1)!;
+      expect(last.animation).not.toBe("ghost");
+      expect(last.ghostExpiresAt).toBeUndefined();
+    });
+
+    it("session-end bumps mayor lastSeenAt so idle-to-ghost starts from Stop, not last tool", () => {
+      const tStart = Date.now() - 10 * 60 * 1000;
+      const tTool = tStart + 1000;
+      const tEnd = tStart + 2 * 60 * 1000; // Stop at +2 min
+      const tNow = tStart + 4 * 60 * 1000; // 4 min after start, 2 min after Stop
+      store.apply(ev({ type: "session-start", timestamp: tStart }));
+      store.apply(ev({ type: "pre-tool-use", toolName: "Read", timestamp: tTool }));
+      store.apply(ev({ type: "session-end", timestamp: tEnd }));
+
+      const mayor = store.getSession("s1")?.agents.get("a1");
+      // Without the session-end bump, lastSeenAt would be tTool (old) and the
+      // next expireGhosts call would flip to ghost. With the bump it stays
+      // within the 3-minute idle window.
+      expect(mayor?.lastSeenAt).toBe(tEnd);
+
+      store.expireGhosts(tNow);
+      const after = store.getSession("s1")?.agents.get("a1");
+      expect(after?.animation).not.toBe("ghost");
+    });
   });
 });
