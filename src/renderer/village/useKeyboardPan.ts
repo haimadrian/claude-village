@@ -18,6 +18,15 @@ import * as THREE from "three";
 
 /** Pan speed in world units per second. Sized so a full island (~26u) takes ~2s. */
 export const PAN_SPEED = 14;
+/**
+ * Extra multiplier on the forward/back axis. Forward-pan translates the orbit
+ * target along the camera look direction - visually this scrolls the whole
+ * scene away rather than closing distance, so at the same world-units-per-
+ * second the forward axis reads as "slow" while strafing reads fine. Bumping
+ * the forward axis by ~2.2x matches the perceived strafe speed without
+ * speeding up left/right.
+ */
+export const FORWARD_MULTIPLIER = 2.2;
 /** Dolly speed in world units per second. */
 export const DOLLY_SPEED = 4;
 /** Multiplier applied while Shift is held. */
@@ -60,12 +69,12 @@ export function panDeltaForKeys(
   let ax = 0;
   let az = 0;
   if (keys.has("ArrowUp")) {
-    ax += fx;
-    az += fz;
+    ax += fx * FORWARD_MULTIPLIER;
+    az += fz * FORWARD_MULTIPLIER;
   }
   if (keys.has("ArrowDown")) {
-    ax -= fx;
-    az -= fz;
+    ax -= fx * FORWARD_MULTIPLIER;
+    az -= fz * FORWARD_MULTIPLIER;
   }
   if (keys.has("ArrowRight")) {
     ax += rx;
@@ -75,11 +84,20 @@ export function panDeltaForKeys(
     ax -= rx;
     az -= rz;
   }
-  // Normalise diagonal motion so pressing two keys is not sqrt(2)x faster.
+  // Normalise diagonal motion so pressing two keys is not sqrt(2)x faster,
+  // but keep the forward multiplier effective by comparing against the
+  // longest single-axis contribution we just built instead of the raw length.
+  // If the user pressed only ArrowUp, (ax,az) has length FORWARD_MULTIPLIER,
+  // and we want the step to be FORWARD_MULTIPLIER * speed * dt (not normalised
+  // back down to `speed * dt`). If they press Up+Right the longest single
+  // axis is still FORWARD_MULTIPLIER, so the diagonal stays at that cap
+  // rather than racing ahead.
   const len = Math.hypot(ax, az);
   if (len < 1e-6) return { dx: 0, dz: 0 };
+  const cap = Math.max(FORWARD_MULTIPLIER, 1);
+  const scale = len > cap ? cap / len : 1;
   const step = speed * dt;
-  return { dx: (ax / len) * step, dz: (az / len) * step };
+  return { dx: ax * scale * step, dz: az * scale * step };
 }
 
 /** Sum of dolly deltas requested by the pressed keys, in world units per frame. */
