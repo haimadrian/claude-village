@@ -34,6 +34,7 @@ import { Character } from "./Character";
 import { TooltipLayer } from "./TooltipLayer";
 import { useSessions } from "../context/SessionContext";
 import { allSlotPositions, slotPositionFor } from "./slots";
+import { buildAgentLabels, labelFor } from "./agentLabels";
 import { WavyWater } from "./WavyWater";
 import { MinorIsland } from "./MinorIsland";
 import { MINOR_ISLANDS } from "./minorIslands";
@@ -264,24 +265,32 @@ export function VillageScene({ sessionId }: VillageSceneProps) {
         );
       })}
       {session &&
-        Array.from(session.agents.values()).map((agent) => {
-          const zoneCenter = zonePositions[agent.currentZone];
-          const targetCenter = zonePositions[agent.targetZone];
-          if (!zoneCenter || !targetCenter) return null;
-          const slotStart = slotPositionFor(agent.currentZone, agent.id, zoneCenter);
-          const slotTarget = slotPositionFor(agent.targetZone, agent.id, targetCenter);
-          return (
-            <Character
-              key={agent.id}
-              agent={agent}
-              slotStart={slotStart}
-              slotTarget={slotTarget}
-              walkable={grid.walkable}
-              gridSize={grid.size}
-              positionsRef={positionsRef}
-            />
-          );
-        })}
+        (() => {
+          // Build the id -> display-name map once per render. Characters share
+          // the same map so ordering is stable across siblings ("Agent 1" is
+          // always the subagent that appeared first in the session's agents
+          // Map, regardless of render order).
+          const labels = buildAgentLabels(session.agents.values());
+          return Array.from(session.agents.values()).map((agent) => {
+            const zoneCenter = zonePositions[agent.currentZone];
+            const targetCenter = zonePositions[agent.targetZone];
+            if (!zoneCenter || !targetCenter) return null;
+            const slotStart = slotPositionFor(agent.currentZone, agent.id, zoneCenter);
+            const slotTarget = slotPositionFor(agent.targetZone, agent.id, targetCenter);
+            return (
+              <Character
+                key={agent.id}
+                agent={agent}
+                slotStart={slotStart}
+                slotTarget={slotTarget}
+                walkable={grid.walkable}
+                gridSize={grid.size}
+                positionsRef={positionsRef}
+                displayName={labelFor(labels, agent)}
+              />
+            );
+          });
+        })()}
       <TooltipLayer {...(sessionId !== undefined ? { sessionId } : {})} />
     </Canvas>
   );

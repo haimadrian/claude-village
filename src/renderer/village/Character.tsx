@@ -7,7 +7,7 @@ import { computePath, type GridPoint } from "./pathfinding";
 import { computeSeparation } from "./separation";
 import { characterModel } from "./assetMap";
 import { GltfErrorBoundary } from "./GltfErrorBoundary";
-import { hairColor, trousersColor } from "./appearance";
+import { hairColor, trousersColor, shirtColorFor } from "./appearance";
 import type { AgentState } from "../../shared/types";
 
 interface CharacterProps {
@@ -30,6 +30,13 @@ interface CharacterProps {
    * triggering re-renders.
    */
   positionsRef: React.MutableRefObject<Map<string, THREE.Vector3>>;
+  /**
+   * Readable label rendered above the character's head (e.g. "Mayor" or
+   * "Agent 3"). Computed in the parent scene because the index depends on
+   * sibling agents. Decoupling keeps this component stateless about
+   * naming.
+   */
+  displayName: string;
 }
 
 // Characters walk at 8 u/s so a full cross-ring traversal (~26 units across
@@ -46,7 +53,8 @@ export function Character({
   slotTarget,
   walkable,
   gridSize,
-  positionsRef
+  positionsRef,
+  displayName
 }: CharacterProps) {
   const groupRef = useRef<THREE.Group>(null);
   const pathRef = useRef<GridPoint[]>([]);
@@ -138,14 +146,16 @@ export function Character({
   const initialWorld = initialWorldRef.current;
   const translucent = agent.animation === "ghost";
   const opacity = translucent ? 0.4 : 1;
-  const labelPrefix = agent.kind === "main" ? "🛡 " : "";
   const lastAction = agent.recentActions[agent.recentActions.length - 1];
 
   const hair = hairColor(agent.id);
   const trousers = trousersColor(agent.id);
+  // Mayor always wears a fixed near-white shirt so it reads as the "main"
+  // agent at a glance; subagents keep their hashed per-id colour.
+  const shirt = shirtColorFor(agent);
   const fallback = (
     <FallbackCharacter
-      skinColor={agent.skinColor}
+      skinColor={shirt}
       hairColor={hair}
       trousersColor={trousers}
       translucent={translucent}
@@ -163,7 +173,7 @@ export function Character({
         <Suspense fallback={fallback}>
           <CharacterMesh
             kind={agent.kind}
-            skinColor={agent.skinColor}
+            skinColor={shirt}
             hairColor={hair}
             trousersColor={trousers}
             translucent={translucent}
@@ -173,7 +183,10 @@ export function Character({
       </GltfErrorBoundary>
       <Html position={[0, 2.2, 0]} center zIndexRange={[100, 0]}>
         <div
-          title={`${agent.kind === "main" ? "Mayor" : "Villager"} - ${agent.id}`}
+          data-testid="agent-label"
+          data-agent-kind={agent.kind}
+          data-agent-id={agent.id}
+          title={displayName}
           style={{
             fontSize: 16,
             fontWeight: 600,
@@ -186,8 +199,7 @@ export function Character({
             textShadow: "0 1px 2px rgba(0,0,0,0.5)"
           }}
         >
-          {labelPrefix}
-          {agent.id.slice(0, 6)}
+          {displayName}
         </div>
       </Html>
       {lastAction && (

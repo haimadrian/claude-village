@@ -4,6 +4,7 @@ import { Html } from "@react-three/drei";
 import * as THREE from "three";
 import { ZONES } from "../../shared/zones";
 import { useSessions, type TabSession } from "../context/SessionContext";
+import { buildAgentLabels, labelFor } from "./agentLabels";
 
 type TooltipKind = "zone" | "zone-ground" | "zone-signpost" | "zone-icon" | "character";
 
@@ -135,13 +136,18 @@ function renderContent(hover: HoverTarget, session: TabSession | undefined): JSX
     if (!agentId) return null;
     const agent = session?.agents.get(agentId);
     if (!agent) return null;
-    const title = agent.kind === "main" ? "🛡 Mayor" : "Villager";
+    // Mayor keeps the shield emoji on the tooltip so it reads as the main
+    // agent at a glance; subagents show just their computed label. The raw
+    // agent id is rendered below as a faint subtitle for debugging copy /
+    // paste, never as the primary identifier.
+    const labels = session ? buildAgentLabels(session.agents.values()) : new Map();
+    const name = labelFor(labels, agent);
+    const title = agent.kind === "main" ? `🛡 ${name}` : name;
     return (
       <div>
-        <div style={{ fontWeight: 600 }}>
-          {title} {agent.id.slice(0, 8)}
-        </div>
-        <div>
+        <div style={{ fontWeight: 600 }}>{title}</div>
+        <div style={{ fontSize: 10, opacity: 0.6, marginTop: 2 }}>{agent.id}</div>
+        <div style={{ marginTop: 4 }}>
           Zone: {agent.currentZone} -&gt; {agent.targetZone}
         </div>
         <div style={{ marginTop: 4, opacity: 0.8 }}>

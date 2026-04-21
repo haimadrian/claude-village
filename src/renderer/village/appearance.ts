@@ -56,4 +56,23 @@ export function trousersColor(id: string): string {
   return TROUSERS_PALETTE[idx] ?? TROUSERS_PALETTE[0]!;
 }
 
-export const __test = { HAIR_PALETTE, TROUSERS_PALETTE, stringHash };
+/**
+ * The mayor (main agent) wears a near-white shirt regardless of id hash so it
+ * visually stands out from the per-agent hashed shirt colours that subagents
+ * wear. Pure `#ffffff` works but reads slightly too bright against the green
+ * grass; `#f2f2f2` keeps the contrast while still reading as "white".
+ */
+const MAYOR_SHIRT_COLOR = "#f2f2f2";
+
+/**
+ * Pick the body / shirt colour for a given agent. Main agents (the mayor)
+ * always wear a fixed near-white shirt so they are instantly recognisable in
+ * the scene. Subagents keep their hashed per-id colour (stored in
+ * `agent.skinColor`, which the render pipeline actually uses for the body
+ * mesh - the field name is a historical misnomer).
+ */
+export function shirtColorFor(agent: { kind: "main" | "subagent"; skinColor: string }): string {
+  return agent.kind === "main" ? MAYOR_SHIRT_COLOR : agent.skinColor;
+}
+
+export const __test = { HAIR_PALETTE, TROUSERS_PALETTE, stringHash, MAYOR_SHIRT_COLOR };

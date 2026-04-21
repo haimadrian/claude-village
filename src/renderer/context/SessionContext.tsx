@@ -76,32 +76,45 @@ export function SessionProvider({ children }: { children: React.ReactNode }): JS
       setSessions((prev) => {
         const next = new Map(prev);
         let session = next.get(p.sessionId);
+        // Lazily materialise the session if an `agent-upsert` or
+        // `timeline-append` arrives before a `session-upsert` (e.g. a
+        // subagent-start patch reaches the renderer slightly ahead of the
+        // parent's session-start patch, or the main-process ordering is
+        // ever changed). Without this, the change is silently dropped and
+        // the character never spawns. `session-upsert` still fills in the
+        // authoritative fields when its patch arrives later.
+        const ensureSession = (): TabSession => {
+          if (session) return session;
+          const now = Date.now();
+          session = {
+            sessionId: p.sessionId,
+            startedAt: now,
+            lastActivityAt: now,
+            status: "active",
+            agents: new Map(),
+            timeline: [],
+            pinned: false
+          };
+          return session;
+        };
         try {
           for (const change of p.changes) {
             if (change.kind === "session-upsert") {
-              if (!session) {
-                session = {
-                  sessionId: p.sessionId,
-                  startedAt: change.session.startedAt,
-                  lastActivityAt: change.session.lastActivityAt,
-                  status: change.session.status,
-                  agents: new Map(),
-                  timeline: [],
-                  pinned: false
-                };
-              }
-              session = { ...session, ...change.session };
-            } else if (change.kind === "agent-upsert" && session) {
-              const agents = new Map(session.agents);
+              ensureSession();
+              session = { ...session!, ...change.session };
+            } else if (change.kind === "agent-upsert") {
+              ensureSession();
+              const agents = new Map(session!.agents);
               agents.set(change.agent.id, change.agent);
-              session = { ...session, agents };
+              session = { ...session!, agents };
             } else if (change.kind === "agent-remove" && session) {
               const agents = new Map(session.agents);
               agents.delete(change.agentId);
               session = { ...session, agents };
-            } else if (change.kind === "timeline-append" && session) {
-              const timeline = [...session.timeline, change.line].slice(-500);
-              session = { ...session, timeline };
+            } else if (change.kind === "timeline-append") {
+              ensureSession();
+              const timeline = [...session!.timeline, change.line].slice(-500);
+              session = { ...session!, timeline };
             }
           }
         } catch (err) {

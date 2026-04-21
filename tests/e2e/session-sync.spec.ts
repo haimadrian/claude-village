@@ -11,7 +11,18 @@ test.beforeAll(async () => {
   const projDir = path.join(fakeClaude, "projects", "-my-project");
   fs.mkdirSync(projDir, { recursive: true });
   const ts = new Date().toISOString();
+  // The sidebar and tab chrome render Claude Code's session title (emitted
+  // via `custom-title` / `summary` JSONL events); the raw sessionId is no
+  // longer shown as the visible label. Seed a `custom-title` line so the
+  // assertions below have a stable string to match.
   const lines = [
+    {
+      type: "custom-title",
+      title: "sess-abc demo",
+      sessionId: "sess-abc",
+      uuid: "u-0",
+      timestamp: ts
+    },
     {
       type: "user",
       message: { role: "user", content: "hello" },

@@ -166,13 +166,18 @@ function Shell(): JSX.Element {
         >
           {visibleSessions.map((s) => {
             const live = deriveStatus(s);
-            const label = s.title ?? s.sessionId.slice(0, 8);
+            // Prefer Claude Code's session title (emitted via `custom-title`
+            // / `summary` JSONL events). Fall back to a generic "New session"
+            // label when the title hasn't been seen yet - raw UUIDs are
+            // useless to humans. The full sessionId stays on the button's
+            // `title` attribute for hover-to-copy instead.
+            const label = s.title ?? "New session";
             const truncated = label.length > 28 ? label.slice(0, 27) + "\u2026" : label;
             return (
               <li key={s.sessionId} style={{ marginBottom: 4 }}>
                 <button
                   onClick={() => openTab(s.sessionId)}
-                  title={label}
+                  title={s.sessionId}
                   style={{
                     all: "unset",
                     cursor: "pointer",
@@ -253,7 +258,11 @@ function Shell(): JSX.Element {
           {openTabIds.map((id) => {
             const s = sessions.get(id);
             const isActive = id === activeTabId;
-            const fullLabel = s?.title ?? id.slice(0, 8);
+            // Same title-first logic as the sidebar: prefer the session
+            // title; fall back to a generic label until we see one. The
+            // raw sessionId goes on the button's `title=` attribute so
+            // hovering still shows the UUID for debugging.
+            const fullLabel = s?.title ?? "New session";
             const tabLabel = fullLabel.length > 14 ? fullLabel.slice(0, 14) + "\u2026" : fullLabel;
             return (
               <div
@@ -270,7 +279,7 @@ function Shell(): JSX.Element {
               >
                 <button
                   onClick={() => setActiveTab(id)}
-                  title={fullLabel}
+                  title={id}
                   style={{ all: "unset", cursor: "pointer" }}
                 >
                   {tabLabel}

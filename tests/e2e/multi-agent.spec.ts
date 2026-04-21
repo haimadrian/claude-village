@@ -48,14 +48,12 @@ test("mayor and subagents render when driven by hook events", async () => {
   // 1. Session start. The mayor (main agent) is spawned.
   await postHook({ hook_event_name: "SessionStart", session_id: sessionId });
 
-  // Sidebar + tab pick up the new session.
-  await expect
-    .poll(async () => await window.locator("aside").innerText(), {
-      timeout: 5_000,
-      intervals: [100, 250, 500]
-    })
-    .toContain("cv-e2e");
-  await expect(window.locator("nav")).toContainText("cv-e2e");
+  // We no longer render the raw sessionId in the sidebar or tab chrome - the
+  // app shows Claude Code's session title, falling back to "New session"
+  // until one arrives. Flexible nav / sidebar assertions: just confirm a
+  // session row appears and the village canvas renders.
+  await expect(window.locator("aside button").first()).toBeVisible({ timeout: 5_000 });
+  await expect(window.locator("nav button").first()).toBeVisible({ timeout: 5_000 });
   await expect(window.locator("canvas").first()).toBeVisible({ timeout: 5_000 });
 
   // 2. Mayor reads a file (walks to the Library).
@@ -82,21 +80,24 @@ test("mayor and subagents render when driven by hook events", async () => {
     tool_input: { subagent_type: "explorer", prompt: "look around" }
   });
 
-  // Each Character renders a drei <Html> name label: "🛡 <id-prefix>" for the
-  // mayor, "<id-prefix>" for subagents. Two characters to labels starting
-  // with "cv-e2e" (one mayor, one subagent).
+  // Each Character renders a drei <Html> name label with a
+  // `data-testid="agent-label"` attribute and `data-agent-kind` of "main" or
+  // "subagent". We expect two labels total after the Task dispatch: one
+  // Mayor, one subagent.
   await expect
-    .poll(
-      async () => await window.locator("div[title*='cv-e2e']").count(),
-      { timeout: 7_000, intervals: [250, 500] }
-    )
+    .poll(async () => await window.locator('[data-testid="agent-label"]').count(), {
+      timeout: 7_000,
+      intervals: [250, 500]
+    })
     .toBeGreaterThanOrEqual(2);
 
-  // Mayor label carries the shield prefix; subagent label does not.
-  const mayorLabels = await window.locator("div[title^='Mayor']").count();
-  const villagerLabels = await window.locator("div[title^='Villager']").count();
-  expect(mayorLabels).toBe(1);
-  expect(villagerLabels).toBeGreaterThanOrEqual(1);
+  // Mayor label is always "Mayor"; subagent label is "Agent N".
+  const mayorLabels = window.locator('[data-testid="agent-label"][data-agent-kind="main"]');
+  const subagentLabels = window.locator('[data-testid="agent-label"][data-agent-kind="subagent"]');
+  expect(await mayorLabels.count()).toBe(1);
+  expect(await mayorLabels.first().innerText()).toBe("Mayor");
+  expect(await subagentLabels.count()).toBeGreaterThanOrEqual(1);
+  expect(await subagentLabels.first().innerText()).toMatch(/^Agent \d+$/);
 
   // 4. Subagent finishes - send the matching Task post-tool-use. Store marks
   //    the subagent character ghost; it is still present until the 3-minute
@@ -113,7 +114,9 @@ test("mayor and subagents render when driven by hook events", async () => {
   // 5. Session end. The session status flips to ended; the mayor label stays
   //    rendered on the scene.
   await postHook({ hook_event_name: "Stop", session_id: sessionId });
-  await expect(window.locator("div[title^='Mayor']")).toHaveCount(1);
+  await expect(
+    window.locator('[data-testid="agent-label"][data-agent-kind="main"]')
+  ).toHaveCount(1);
 });
 
 interface HookPayload {

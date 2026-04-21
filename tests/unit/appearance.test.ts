@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { hairColor, __test } from "../../src/renderer/village/appearance";
+import { hairColor, shirtColorFor, __test } from "../../src/renderer/village/appearance";
 
 const HEX = /^#[0-9a-fA-F]{6}$/;
 
@@ -27,5 +27,21 @@ describe("hairColor", () => {
   it("handles the empty string without throwing", () => {
     const colour = hairColor("");
     expect(colour).toMatch(HEX);
+  });
+});
+
+describe("shirtColorFor", () => {
+  it("returns the fixed mayor shirt colour for main agents, ignoring their hashed skinColor", () => {
+    const mayor = { kind: "main" as const, skinColor: "#123456" };
+    expect(shirtColorFor(mayor)).toBe(__test.MAYOR_SHIRT_COLOR);
+    // Even if skinColor changes, the mayor shirt is stable.
+    expect(shirtColorFor({ ...mayor, skinColor: "#abcdef" })).toBe(__test.MAYOR_SHIRT_COLOR);
+  });
+
+  it("returns the agent's hashed skinColor for subagents so they stay distinct", () => {
+    const a = { kind: "subagent" as const, skinColor: "#112233" };
+    const b = { kind: "subagent" as const, skinColor: "#445566" };
+    expect(shirtColorFor(a)).toBe("#112233");
+    expect(shirtColorFor(b)).toBe("#445566");
   });
 });
