@@ -14,5 +14,8 @@ contextBridge.exposeInMainWorld("claudeVillage", {
     const l = (): void => cb();
     ipcRenderer.on("menu:about", l);
     return () => ipcRenderer.off("menu:about", l);
-  }
+  },
+  readHooks: () => ipcRenderer.invoke("hooks:read"),
+  installHooks: () => ipcRenderer.invoke("hooks:install"),
+  uninstallHooks: () => ipcRenderer.invoke("hooks:uninstall")
 });

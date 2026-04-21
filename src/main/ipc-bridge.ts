@@ -4,6 +4,7 @@ import type { SessionWatcher } from "./session-watcher";
 import type { HookServer } from "./hook-server";
 import type { AgentEvent, AgentState, SessionState } from "../shared/types";
 import { logger } from "./logger";
+import { installHook, readSettings, uninstallHook } from "./hook-installer";
 
 /**
  * Serializable projection of a `SessionState` for IPC transit. The live
@@ -66,6 +67,41 @@ export function wireIpc(opts: {
     store.unpin(id);
   });
 
+  // Hook installer IPC. Kept thin here - all the merge / write logic lives
+  // in `hook-installer.ts` so it stays unit-testable without Electron.
+  // Each handler catches and surfaces errors as `{ ok: false, error }` so the
+  // renderer can show a message instead of crashing on an unhandled IPC
+  // rejection.
+  ipcMain.handle("hooks:read", async () => {
+    try {
+      return { ok: true as const, ...(await readSettings()) };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      logger.error("hooks:read failed", { message });
+      return { ok: false as const, error: message };
+    }
+  });
+  ipcMain.handle("hooks:install", async () => {
+    try {
+      const result = await installHook();
+      return { ok: true as const, ...result };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      logger.error("hooks:install failed", { message });
+      return { ok: false as const, error: message };
+    }
+  });
+  ipcMain.handle("hooks:uninstall", async () => {
+    try {
+      const result = await uninstallHook();
+      return { ok: true as const, ...result };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      logger.error("hooks:uninstall failed", { message });
+      return { ok: false as const, error: message };
+    }
+  });
+
   // Ghosts expire on a 3-minute timer inside the store. We tick every 30s so
   // removal latency is bounded to ~30s worst-case, which is visually fine.
   const ghostInterval = setInterval(() => store.expireGhosts(Date.now()), 30_000);
@@ -84,6 +120,9 @@ export function wireIpc(opts: {
       ipcMain.removeHandler("session:get");
       ipcMain.removeHandler("session:pin");
       ipcMain.removeHandler("session:unpin");
+      ipcMain.removeHandler("hooks:read");
+      ipcMain.removeHandler("hooks:install");
+      ipcMain.removeHandler("hooks:uninstall");
     }
   };
 }

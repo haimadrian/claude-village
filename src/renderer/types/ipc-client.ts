@@ -21,6 +21,32 @@ export type SessionWire = Omit<SessionState, "agents" | "timeline"> & {
   timeline: TimelineLine[];
 };
 
+export interface HookReadOk {
+  ok: true;
+  settingsPath: string;
+  currentText: string;
+  currentParsed: unknown;
+  mergedText: string;
+  diffText: string;
+  isInstalled: boolean;
+}
+
+export interface HookMutationOk {
+  ok: true;
+  settingsPath: string;
+  previousText: string;
+  nextText: string;
+  changed: boolean;
+}
+
+export interface HookErr {
+  ok: false;
+  error: string;
+}
+
+export type HookReadResponse = HookReadOk | HookErr;
+export type HookMutationResponse = HookMutationOk | HookErr;
+
 export interface ClaudeVillageAPI {
   listSessions: () => Promise<SessionWire[]>;
   getSession: (id: string) => Promise<SessionWire | null>;
@@ -28,6 +54,9 @@ export interface ClaudeVillageAPI {
   unpinSession: (id: string) => Promise<void>;
   onPatch: (cb: (p: SessionPatch) => void) => () => void;
   onMenuAbout: (cb: () => void) => () => void;
+  readHooks: () => Promise<HookReadResponse>;
+  installHooks: () => Promise<HookMutationResponse>;
+  uninstallHooks: () => Promise<HookMutationResponse>;
 }
 
 declare global {
