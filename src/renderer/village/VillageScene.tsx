@@ -1,5 +1,6 @@
 /* eslint-disable react/no-unknown-property -- react-three-fiber extends JSX with three.js props */
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
+import * as THREE from "three";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import { logger } from "../logger";
@@ -24,12 +25,28 @@ interface VillageSceneProps {
 export function VillageScene({ sessionId }: VillageSceneProps) {
   const { sessions } = useSessions();
   const session = sessionId ? sessions.get(sessionId) : undefined;
-  const positions = computeZonePositions();
-  const zonePositions = Object.fromEntries(ZONES.map((z, i) => [z.id, positions[i]!])) as Record<
-    string,
-    [number, number, number]
-  >;
-  const grid = buildWalkableGrid();
+
+  // Positions and the walkable grid are purely geometric - they depend on
+  // nothing that changes at runtime - but we still memoize them so that the
+  // `walkable` array, `zonePositions` object, etc. keep stable references
+  // across re-renders. Character components use these values in `useMemo` /
+  // `useEffect` dependency arrays; without memoization every session patch
+  // would invalidate them and cause path recomputation from stale positions.
+  const positions = useMemo(() => computeZonePositions(), []);
+  const zonePositions = useMemo(
+    () =>
+      Object.fromEntries(ZONES.map((z, i) => [z.id, positions[i]!])) as Record<
+        string,
+        [number, number, number]
+      >,
+    [positions]
+  );
+  const grid = useMemo(() => buildWalkableGrid(), []);
+
+  // Shared live-position map for character separation. Lives outside React's
+  // render cycle because it updates every frame.
+  const positionsRef = useRef<Map<string, THREE.Vector3>>(new Map());
+
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
 
   useEffect(() => {
@@ -87,6 +104,7 @@ export function VillageScene({ sessionId }: VillageSceneProps) {
             zonePositions={zonePositions}
             walkable={grid.walkable}
             gridSize={grid.size}
+            positionsRef={positionsRef}
           />
         ))}
       <TooltipLayer {...(sessionId !== undefined ? { sessionId } : {})} />

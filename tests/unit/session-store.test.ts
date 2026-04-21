@@ -32,6 +32,18 @@ describe("SessionStore", () => {
     expect(agent?.targetZone).toBe("library");
   });
 
+  it("advances currentZone in step with targetZone on pre-tool-use", () => {
+    // Regression: before this fix, `currentZone` was initialised to "tavern"
+    // and never updated, which made the renderer snap agents back to the
+    // Tavern on every re-render. The store must keep both zones in sync so
+    // camera focus and re-mounts reflect where the agent is actually working.
+    store.apply(ev({ type: "session-start" }));
+    store.apply(ev({ type: "pre-tool-use", toolName: "Edit", toolArgsSummary: "/x.ts" }));
+    const agent = store.getSession("s1")?.agents.get("a1");
+    expect(agent?.currentZone).toBe("office");
+    expect(agent?.targetZone).toBe("office");
+  });
+
   it("creates subagent on subagent-start", () => {
     store.apply(ev({ type: "session-start" }));
     store.apply(

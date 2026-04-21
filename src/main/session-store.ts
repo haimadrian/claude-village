@@ -129,6 +129,7 @@ export class SessionStore extends EventEmitter {
       const agent = session.agents.get(event.agentId);
       if (agent) {
         agent.animation = "ghost";
+        agent.currentZone = "tavern";
         agent.targetZone = "tavern";
         agent.ghostExpiresAt = event.timestamp + GHOST_MS;
         changes.push({ kind: "agent-upsert", agent });
@@ -136,6 +137,12 @@ export class SessionStore extends EventEmitter {
     } else if (event.type === "pre-tool-use" || event.type === "post-tool-use") {
       const agent = this.ensureAgent(session, event.agentId, event.kind, event.parentAgentId);
       const c = classify(event);
+      // Advance the semantic zone immediately. The renderer animates the
+      // character between zones over time; it no longer relies on
+      // `currentZone` for the mount-time position (that is latched on first
+      // render), but keeping `currentZone` in sync with `targetZone` keeps
+      // other code paths (e.g. camera focus-agent, tooltips) correct.
+      agent.currentZone = c.zone;
       agent.targetZone = c.zone;
       agent.animation = c.animation;
       agent.recentActions.push({
