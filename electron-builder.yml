@@ -11,3 +11,9 @@ mac:
   icon: build/icon.png
   hardenedRuntime: false
   identity: null
+# The Release workflow uses softprops/action-gh-release to attach the
+# built .dmg (plus .blockmap / latest-mac.yml) to the GitHub Release.
+# electron-builder must NOT attempt its own auto-publish on CI - it
+# would demand a GH_TOKEN and fail the "Package .dmg" step before our
+# workflow step ever runs.
+publish: null

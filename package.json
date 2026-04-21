@@ -2,6 +2,17 @@
   "name": "claude-village",
   "version": "0.1.0",
   "description": "Visualize Claude Code sessions as an animated Minecraft-style village",
+  "author": {
+    "name": "Haim Adrian",
+    "email": "haim@honeybook.com",
+    "url": "https://github.com/haimadrian"
+  },
+  "homepage": "https://haimadrian.github.io/claude-village/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/haimadrian/claude-village.git"
+  },
+  "license": "MIT",
   "private": true,
   "type": "module",
   "main": "out/main/index.js",
@@ -9,7 +20,7 @@
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
-    "package": "electron-vite build && electron-builder --mac",
+    "package": "electron-vite build && electron-builder --mac --publish never",
     "e2e:full": "electron-vite build && playwright test",
     "lint": "eslint src && prettier --check \"src/**/*.{ts,tsx,json,md}\"",
     "lint:fix": "eslint src --fix && prettier --write \"src/**/*.{ts,tsx,json,md}\"",
