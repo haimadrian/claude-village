@@ -44,11 +44,14 @@ export const UNDERWATER_CAMERA_Y = -0.2;
 export const UNDERWATER_COLOR = 0x0a3a6b;
 
 /**
- * Exponential fog density underwater. Tuned so the seabed (~18 units
- * below the camera on a dive) still reads clearly, while distant
- * minor-island trunks at 40+ units blur into the blue murk.
+ * Exponential fog density underwater. FogExp2 attenuates by
+ * exp(-(density * distance)^2), so 0.06 opened to ~90 percent fog at
+ * 30 units - far too thick, the seabed's flowers and stones became
+ * unreadable on a deep dive. 0.022 keeps a noticeable blue tint close
+ * up, lets the seabed at ~30 units stay clearly visible, and still
+ * blurs distant minor-island trunks past 60 units.
  */
-export const UNDERWATER_FOG_DENSITY = 0.06;
+export const UNDERWATER_FOG_DENSITY = 0.022;
 
 /**
  * Pure helper for tests and callers that want to classify a camera
