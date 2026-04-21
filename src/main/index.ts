@@ -40,15 +40,24 @@ process.on("unhandledRejection", (reason) => {
 });
 
 async function createWindow(): Promise<void> {
-  logger.info("creating main window");
+  // E2E specs set CV_HIDDEN_WINDOW=1 so the test-spawned Electron does not
+  // steal focus, flash on screen, or show a dock icon while Playwright
+  // drives it. The renderer and WebGL keep running - Playwright reads the
+  // DOM and the hook server through the normal channels.
+  const hidden = process.env.CV_HIDDEN_WINDOW === "1";
+  logger.info("creating main window", { hidden });
   const win = new BrowserWindow({
     width: 1280,
     height: 800,
     title: "claude-village",
+    show: !hidden,
     webPreferences: {
       preload: path.join(__dirname, "../preload/index.cjs"),
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      // Ensure animations keep ticking even when the window is hidden (we
+      // rely on that during e2e screenshots / pixel sampling).
+      backgroundThrottling: false
     }
   });
 
