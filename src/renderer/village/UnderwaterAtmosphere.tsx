@@ -1,12 +1,7 @@
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { useFrame, useThree } from "@react-three/fiber";
-import {
-  UNDERWATER_CAMERA_Y,
-  UNDERWATER_COLOR,
-  UNDERWATER_FOG_DENSITY,
-  isUnderwater
-} from "./sceneConstants";
+import { UNDERWATER_COLOR, UNDERWATER_FOG_DENSITY, isUnderwaterView } from "./sceneConstants";
 
 /**
  * Installs / removes scene-level fog and background colour based on
@@ -60,7 +55,14 @@ export function UnderwaterAtmosphere({ skyGroupRef }: UnderwaterAtmosphereProps)
   }, [scene]);
 
   useFrame(() => {
-    const under = isUnderwater(camera.position.y, UNDERWATER_CAMERA_Y);
+    // Underwater state is scoped to "camera below waterline AND over the
+    // ocean, not over the main island". A close zoom toward the centre
+    // can pull the camera below y = UNDERWATER_CAMERA_Y even though the
+    // user is still looking at land - flipping the scene into underwater
+    // mode there hides the sky dome while the island fills the view,
+    // producing a bright white/green wash (the reported "zoom to white
+    // screen" bug).
+    const under = isUnderwaterView(camera.position.x, camera.position.y, camera.position.z);
     if (lastStateRef.current === under) return;
     lastStateRef.current = under;
 

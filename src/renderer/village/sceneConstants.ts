@@ -61,3 +61,30 @@ export const UNDERWATER_FOG_DENSITY = 0.022;
 export function isUnderwater(cameraY: number, threshold: number = UNDERWATER_CAMERA_Y): boolean {
   return cameraY < threshold;
 }
+
+/**
+ * Refined underwater classification used by `UnderwaterAtmosphere`.
+ * A camera that is below the water-line threshold but still sits over
+ * the main island footprint is NOT considered "underwater" - it is
+ * just zoomed in tight against the island surface, and flipping the
+ * scene into underwater mode there would hide the sky dome while
+ * leaving the island in view, producing a bright/washed-out frame.
+ *
+ * We only treat the view as underwater when the camera is also outside
+ * the main island's horizontal footprint (so the camera is actually
+ * over the ocean). A small tolerance keeps the transition smooth when
+ * the user pans across the island edge.
+ */
+export function isUnderwaterView(
+  cameraX: number,
+  cameraY: number,
+  cameraZ: number,
+  threshold: number = UNDERWATER_CAMERA_Y,
+  islandRadius: number = MAIN_ISLAND_RADIUS
+): boolean {
+  if (cameraY >= threshold) return false;
+  const horizontal = Math.hypot(cameraX, cameraZ);
+  // A 10% tolerance past the island rim avoids flicker when the user
+  // pans the camera right along the shoreline.
+  return horizontal > islandRadius * 1.1;
+}
